@@ -1,0 +1,90 @@
+.inventory-container {
+    padding: 20px;
+}
+
+.inventory-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.inventory-table {
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.inventory-table th {
+    background-color: #f5f5f5;
+    padding: 12px;
+    text-align: left;
+}
+
+.inventory-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.inventory-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.search-bar {
+    width: 300px;
+    margin-bottom: 20px;
+}
+
+.add-item-button {
+    background-color: #1976d2;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.add-item-button:hover {
+    background-color: #1565c0;
+}
+
+.inventory-form {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.stock-warning {
+    color: #f44336;
+    font-size: 0.875rem;
+    margin-top: 4px;
+}
+
+.stock-ok {
+    color: #4caf50;
+    font-size: 0.875rem;
+    margin-top: 4px;
+} 
