@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import '../styles/inventory.css';
 
@@ -17,10 +18,7 @@ const InventoryManagement = () => {
         price: '',
         minStock: ''
     });
-    const [formErrors, setFormErrors] = useState({
-        name: '',
-        supplier_name: ''
-    });
+    const [formErrors, setFormErrors] = useState({ name: '' });
     const [activeTab, setActiveTab] = useState(0);
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
     const [page, setPage] = useState(0);
@@ -38,12 +36,6 @@ const InventoryManagement = () => {
         amount: '',
         adjustmentType: null,
         notes: ''
-    });
-    const [actionMenu, setActionMenu] = useState({
-        visible: false,
-        top: 0,
-        left: 0,
-        itemId: null
     });
 
     const fetchInventory = useCallback(async () => {
@@ -66,12 +58,6 @@ const InventoryManagement = () => {
                     activeTab === 0 ? !item.isRemoved : item.isRemoved
                 );
                 setInventory(filteredProducts);
-                console.log('Fetched inventory:', filteredProducts.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    isRemoved: item.isRemoved,
-                    tab: activeTab === 0 ? 'Active' : 'Removed'
-                })));
             } else if (data.error) {
                 throw new Error(data.error);
             } else {
@@ -107,12 +93,6 @@ const InventoryManagement = () => {
         }
     }, [inventory, activeTab]);
 
-    useEffect(() => {
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-        };
-    }, []);
-
     const handleTabChange = (newValue) => {
         setActiveTab(newValue);
         setPage(0);
@@ -142,14 +122,14 @@ const InventoryManagement = () => {
                 minStock: ''
             });
         }
-        setFormErrors({ name: '', supplier_name: '' });
+        setFormErrors({ name: '' });
         setOpenDialog(true);
     };
 
     const handleCloseDialog = () => {
         setOpenDialog(false);
         setEditingItem(null);
-        setFormErrors({ name: '', supplier_name: '' });
+        setFormErrors({ name: '' });
     };
 
     const handleInputChange = (e) => {
@@ -158,32 +138,11 @@ const InventoryManagement = () => {
             ...prev,
             [name]: value
         }));
-        setFormErrors(prev => ({
-            ...prev,
-            [name]: ''
-        }));
-    };
-
-    const handleActionMenuOpen = (e, itemId) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const rect = e.currentTarget.getBoundingClientRect();
-        setActionMenu({
-            visible: true,
-            top: rect.bottom + window.scrollY,
-            left: rect.left + window.scrollX,
-            itemId
-        });
-        document.addEventListener('click', handleClickOutside);
-    };
-
-    const handleClickOutside = (e) => {
-        if (!e.target.closest('.action-menu') && !e.target.closest('.action-button')) {
-            setActionMenu(prev => ({
+        if (name === 'name') {
+            setFormErrors(prev => ({
                 ...prev,
-                visible: false
+                name: ''
             }));
-            document.removeEventListener('click', handleClickOutside);
         }
     };
 
@@ -194,7 +153,6 @@ const InventoryManagement = () => {
             message,
             action
         });
-        setActionMenu(prev => ({ ...prev, visible: false }));
     };
 
     const closeConfirmDialog = () => {
@@ -205,7 +163,6 @@ const InventoryManagement = () => {
         const currentItem = inventory.find(invItem => invItem.id === item.id);
         if (!currentItem) {
             setNotification({ open: true, message: 'Item not found for stock adjustment.', severity: 'error' });
-            setActionMenu(prev => ({ ...prev, visible: false }));
             return;
         }
         setStockAdjustDialog({
@@ -215,7 +172,6 @@ const InventoryManagement = () => {
             notes: '',
             adjustmentType: type
         });
-        setActionMenu(prev => ({ ...prev, visible: false }));
     };
 
     const closeStockAdjustDialog = () => {
@@ -234,10 +190,19 @@ const InventoryManagement = () => {
             return;
         }
 
+        if (!notes.trim()) {
+            setNotification({
+                open: true,
+                message: 'Please provide a note for the adjustment.',
+                severity: 'error'
+            });
+            return;
+        }
+
         const payload = {
             amount: Number(amount),
             adjustmentType,
-            notes: notes || (adjustmentType === 'add' ? 'Stock added' : 'Stock removed')
+            notes: notes.trim()
         };
 
         setLoading(true);
@@ -363,18 +328,14 @@ const InventoryManagement = () => {
             return;
         }
 
-        const duplicateName = !editingItem && inventory.some(item => 
-            item.name.toLowerCase() === formData.name.toLowerCase() && !item.isRemoved
-        );
-        const duplicateSupplier = !editingItem && inventory.some(item => 
-            item.supplier_name.toLowerCase() === formData.supplier_name.toLowerCase() && !item.isRemoved
+        const duplicateName = inventory.some(item => 
+            item.name.toLowerCase() === formData.name.toLowerCase() && 
+            !item.isRemoved && 
+            (!editingItem || item.id !== editingItem.id)
         );
 
-        if (duplicateName || duplicateSupplier) {
-            setFormErrors({
-                name: duplicateName ? 'Product name already exists.' : '',
-                supplier_name: duplicateSupplier ? 'Supplier already exists.' : ''
-            });
+        if (duplicateName) {
+            setFormErrors({ name: 'Product name already exists.' });
             return;
         }
 
@@ -537,13 +498,47 @@ const InventoryManagement = () => {
                                                 <span className="status removed">Removed</span>
                                             )}
                                         </td>
-                                        <td className="center-align">
-                                            <button 
-                                                className="action-button"
-                                                onClick={(e) => handleActionMenuOpen(e, item.id)}
-                                            >
-                                                ⋮
-                                            </button>
+                                        <td className="center-align action-buttons">
+                                            {!item.isRemoved ? (
+                                                <>
+                                                    <button 
+                                                        className="action-button edit"
+                                                        onClick={() => handleOpenDialog(item)}
+                                                        title="Edit"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button 
+                                                        className="action-button add-stock"
+                                                        onClick={() => openStockAdjustDialog(item, 'add')}
+                                                        title="Add Stock"
+                                                    >
+                                                        ➕
+                                                    </button>
+                                                    <button 
+                                                        className="action-button remove-stock"
+                                                        onClick={() => openStockAdjustDialog(item, 'remove')}
+                                                        title="Remove Stock"
+                                                    >
+                                                        ➖
+                                                    </button>
+                                                    <button 
+                                                        className="action-button remove-item"
+                                                        onClick={() => toggleProductStatus(item.id, false)}
+                                                        title="Remove Item"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button 
+                                                    className="action-button restore"
+                                                    onClick={() => toggleProductStatus(item.id, true)}
+                                                    title="Restore Item"
+                                                >
+                                                    ♻️
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -557,7 +552,7 @@ const InventoryManagement = () => {
                             disabled={page === 0}
                             onClick={() => handleChangePage(page - 1)}
                         >
-                            &lt; Prev
+                            {'< Prev'}
                         </button>
                         <span className="page-info">
                             Page {page + 1} of {totalPages || 1}
@@ -579,67 +574,6 @@ const InventoryManagement = () => {
                             <option value={25}>25 per page</option>
                         </select>
                     </div>
-                </div>
-            )}
-
-            {actionMenu.visible && (
-                <div 
-                    className="action-menu"
-                    style={{ 
-                        position: 'absolute', 
-                        top: actionMenu.top + 'px', 
-                        left: actionMenu.left + 'px' 
-                    }}
-                >
-                    {inventory.find(item => item.id === actionMenu.itemId && !item.isRemoved) && (
-                        <>
-                            <button 
-                                className="menu-item" 
-                                onClick={() => {
-                                    const itemToEdit = inventory.find(item => item.id === actionMenu.itemId);
-                                    if (itemToEdit) handleOpenDialog(itemToEdit);
-                                }}
-                            >
-                                ✏️ Edit
-                            </button>
-                            <button 
-                                className="menu-item"
-                                onClick={() => {
-                                    const item = inventory.find(i => i.id === actionMenu.itemId);
-                                    if (item) openStockAdjustDialog(item, 'add');
-                                }}
-                            >
-                                ➕ Add Stock
-                            </button>
-                            <button 
-                                className="menu-item"
-                                onClick={() => {
-                                    const item = inventory.find(i => i.id === actionMenu.itemId);
-                                    if (item) openStockAdjustDialog(item, 'remove');
-                                }}
-                            >
-                                ➖ Remove Stock
-                            </button>
-                            <button 
-                                className="menu-item remove-item"
-                                onClick={() => {
-                                    if (actionMenu.itemId) toggleProductStatus(actionMenu.itemId, false);
-                                }}
-                            >
-                                🗑️ Remove Item
-                            </button>
-                        </>
-                    )}
-                    {inventory.find(item => item.id === actionMenu.itemId && item.isRemoved) && (
-                        <button 
-                            className="menu-item"
-                            onClick={() => {
-                                if (actionMenu.itemId) toggleProductStatus(actionMenu.itemId, true);
-                            }}
-                        >
-                            ♻️ Restore Item
-                        </button>
-                    )}
                 </div>
             )}
 
@@ -687,11 +621,7 @@ const InventoryManagement = () => {
                                         value={formData.supplier_name}
                                         onChange={handleInputChange}
                                         required
-                                        className={formErrors.supplier_name ? 'error' : ''}
                                     />
-                                    {formErrors.supplier_name && (
-                                        <span className="error-message">{formErrors.supplier_name}</span>
-                                    )}
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="quantity">Quantity</label>
@@ -705,7 +635,7 @@ const InventoryManagement = () => {
                                         required
                                         disabled={!!editingItem}
                                     />
-                                        {editingItem && (
+                                    {editingItem && (
                                         <small className="helper-text">Quantity is managed via Add/Remove Stock actions.</small>
                                     )}
                                 </div>
@@ -805,13 +735,14 @@ const InventoryManagement = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="adjustment-notes">Notes (Optional)</label>
+                                <label htmlFor="adjustment-notes">Adjustment Notes (Required)</label>
                                 <textarea
                                     id="adjustment-notes"
                                     value={stockAdjustDialog.notes}
                                     onChange={(e) => setStockAdjustDialog(prev => ({ ...prev, notes: e.target.value }))}
-                                    placeholder={`Reason for ${stockAdjustDialog.adjustmentType === 'add' ? 'adding' : 'removing'} stock...`}
+                                    placeholder="Enter reason for stock adjustment..."
                                     rows="3"
+                                    required
                                 ></textarea>
                             </div>
                         </div>

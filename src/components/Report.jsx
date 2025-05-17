@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import styles from '../styles/report.module.css';
 
 const Report = () => {
   const [activeTab, setActiveTab] = useState('sales');
@@ -10,10 +13,10 @@ const Report = () => {
   const [salesPage, setSalesPage] = useState(1);
   const [inventoryPage, setInventoryPage] = useState(1);
   const [adjustmentPage, setAdjustmentPage] = useState(1);
-  const [salesStart, setSalesStart] = useState('');
-  const [salesEnd, setSalesEnd] = useState('');
-  const [adjustmentStart, setAdjustmentStart] = useState('');
-  const [adjustmentEnd, setAdjustmentEnd] = useState('');
+  const [salesFilterType, setSalesFilterType] = useState('date');
+  const [salesSelectedPeriod, setSalesSelectedPeriod] = useState(null);
+  const [adjustmentFilterType, setAdjustmentFilterType] = useState('date');
+  const [adjustmentSelectedPeriod, setAdjustmentSelectedPeriod] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
   const itemsPerPage = 10;
@@ -106,23 +109,25 @@ const Report = () => {
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Reports - Cocolumber Construction Supply</h2>
-      <div className="tabs flex space-x-4 mb-4">
+    <div className={styles.reportContainer}>
+      <div className={styles.reportHeader}>
+        <h2 className={styles.reportTitle}>Reports - Cocolumber Construction Supply</h2>
+      </div>
+      <div className={styles.tabsContainer}>
         <button
-          className={`px-4 py-2 ${activeTab === 'sales' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          className={activeTab === 'sales' ? styles.tabButtonActive : styles.tabButtonInactive}
           onClick={() => setActiveTab('sales')}
         >
           Sales
         </button>
         <button
-          className={`px-4 py-2 ${activeTab === 'inventory' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          className={activeTab === 'inventory' ? styles.tabButtonActive : styles.tabButtonInactive}
           onClick={() => setActiveTab('inventory')}
         >
           Inventory
         </button>
         <button
-          className={`px-4 py-2 ${activeTab === 'adjustments' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          className={activeTab === 'adjustments' ? styles.tabButtonActive : styles.tabButtonInactive}
           onClick={() => setActiveTab('adjustments')}
         >
           Stock Adjustments
@@ -132,127 +137,161 @@ const Report = () => {
       {/* Sales Tab */}
       {activeTab === 'sales' && (
         <div>
-          <div className="mb-4">
-            <label className="mr-2">Start Date:</label>
-            <input
-              type="date"
-              value={salesStart}
-              onChange={(e) => setSalesStart(e.target.value)}
-              className="border p-1"
-            />
-            <label className="ml-4 mr-2">End Date:</label>
-            <input
-              type="date"
-              value={salesEnd}
-              onChange={(e) => setSalesEnd(e.target.value)}
-              className="border p-1"
-            />
-            <button
-              onClick={() => fetchSalesData(salesStart, salesEnd)}
-              className="ml-4 px-4 py-2 bg-blue-500 text-white rounded"
+          <div className={styles.filterControls}>
+            <label className={styles.filterLabel}>Filter by:</label>
+            <select
+              value={salesFilterType}
+              onChange={(e) => setSalesFilterType(e.target.value)}
+              className={styles.filterSelect}
             >
-              Apply Filter
-            </button>
+              <option value="date">Date</option>
+              <option value="month">Month</option>
+            </select>
+            {salesFilterType === 'date' && (
+              <DatePicker
+                selected={salesSelectedPeriod}
+                onChange={(date) => {
+                  setSalesSelectedPeriod(date);
+                  if (date) {
+                    const start = format(date, 'yyyy-MM-dd');
+                    const end = start;
+                    fetchSalesData(start, end);
+                  }
+                }}
+                dateFormat="yyyy-MM-dd"
+                className={styles.filterInput}
+                placeholderText="Select a date"
+              />
+            )}
+            {salesFilterType === 'month' && (
+              <DatePicker
+                selected={salesSelectedPeriod}
+                onChange={(date) => {
+                  setSalesSelectedPeriod(date);
+                  if (date) {
+                    const start = format(startOfMonth(date), 'yyyy-MM-dd');
+                    const end = format(endOfMonth(date), 'yyyy-MM-dd');
+                    fetchSalesData(start, end);
+                  }
+                }}
+                dateFormat="yyyy-MM"
+                showMonthYearPicker
+                className={styles.filterInput}
+                placeholderText="Select a month"
+              />
+            )}
           </div>
-          <BarChart width={600} height={300} data={monthlySales} className="mb-4">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="total" fill="#8884d8" />
-          </BarChart>
-          <table className="min-w-full bg-white border border-gray-200 shadow rounded">
-            <thead className="bg-green-100 text-left">
-              <tr>
-                <th className="py-2 px-4 border-b">Transaction ID</th>
-                <th className="py-2 px-4 border-b">Date</th>
-                <th className="py-2 px-4 border-b">Total (₱)</th>
-                <th className="py-2 px-4 border-b">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentSales.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{transaction.ref}</td>
-                  <td className="py-2 px-4 border-b">{transaction.date}</td>
-                  <td className="py-2 px-4 border-b">₱{transaction.total.toLocaleString()}</td>
-                  <td className="py-2 px-4 border-b">
-                    <button
-                      onClick={() => handleViewReceipt(transaction.id)}
-                      className="text-blue-500 hover:underline"
-                    >
-                      View Receipt
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-4 flex justify-between">
-            <button
-              onClick={() => setSalesPage((prev) => Math.max(prev - 1, 1))}
-              disabled={salesPage === 1}
-              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span>Page {salesPage} of {totalSalesPages}</span>
-            <button
-              onClick={() => setSalesPage((prev) => Math.min(prev + 1, totalSalesPages))}
-              disabled={salesPage === totalSalesPages}
-              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+          {salesSelectedPeriod ? (
+            <>
+              <div className={styles.chartContainer}>
+                <BarChart width={600} height={300} data={monthlySales}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="total" fill="#3b82f6" />
+                </BarChart>
+              </div>
+              <div className={styles.tableContainer}>
+                <table className={styles.reportTable}>
+                  <thead className={styles.tableHeader}>
+                    <tr>
+                      <th className={styles.tableHeaderCell}>Transaction ID</th>
+                      <th className={styles.tableHeaderCell}>Date</th>
+                      <th className={styles.tableHeaderCell}>Total (₱)</th>
+                      <th className={styles.tableHeaderCell}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentSales.map((transaction) => (
+                      <tr key={transaction.id} className={styles.tableRow}>
+                        <td className={styles.tableCell}>{transaction.ref}</td>
+                        <td className={styles.tableCell}>{transaction.date}</td>
+                        <td className={styles.tableCell}>₱{transaction.total.toLocaleString()}</td>
+                        <td className={styles.tableCell}>
+                          <button
+                            onClick={() => handleViewReceipt(transaction.id)}
+                            className={styles.actionButton}
+                          >
+                            View Receipt
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className={styles.paginationContainer}>
+                <button
+                  onClick={() => setSalesPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={salesPage === 1}
+                  className={styles.paginationButton}
+                >
+                  Previous
+                </button>
+                <span className={styles.paginationText}>Page {salesPage} of {totalSalesPages}</span>
+                <button
+                  onClick={() => setSalesPage((prev) => Math.min(prev + 1, totalSalesPages))}
+                  disabled={salesPage === totalSalesPages}
+                  className={styles.paginationButton}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          ) : (
+            <p>Please select a date or month to view the sales data.</p>
+          )}
         </div>
       )}
 
       {/* Inventory Tab */}
       {activeTab === 'inventory' && (
         <div>
-          <table className="min-w-full bg-white border border-gray-200 shadow rounded">
-            <thead className="bg-green-100 text-left">
-              <tr>
-                <th className="py-2 px-4 border-b">Product</th>
-                <th className="py-2 px-4 border-b">Category</th>
-                <th className="py-2 px-4 border-b">Supplier</th>
-                <th className="py-2 px-4 border-b">Stock</th>
-                <th className="py-2 px-4 border-b">Min Stock</th>
-                <th className="py-2 px-4 border-b">Unit</th>
-                <th className="py-2 px-4 border-b">Price (₱)</th>
-                <th className="py-2 px-4 border-b">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentInventory.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{item.name}</td>
-                  <td className="py-2 px-4 border-b">{item.category}</td>
-                  <td className="py-2 px-4 border-b">{item.supplier_name}</td>
-                  <td className="py-2 px-4 border-b">{item.current_stock}</td>
-                  <td className="py-2 px-4 border-b">{item.min_stock}</td>
-                  <td className="py-2 px-4 border-b">{item.unit}</td>
-                  <td className="py-2 px-4 border-b">₱{item.price.toLocaleString()}</td>
-                  <td className="py-2 px-4 border-b">{item.stock_status}</td>
+          <div className={styles.tableContainer}>
+            <table className={styles.reportTable}>
+              <thead className={styles.tableHeader}>
+                <tr>
+                  <th className={styles.tableHeaderCell}>Product</th>
+                  <th className={styles.tableHeaderCell}>Category</th>
+                  <th className={styles.tableHeaderCell}>Supplier</th>
+                  <th className={styles.tableHeaderCell}>Stock</th>
+                  <th className={styles.tableHeaderCell}>Min Stock</th>
+                  <th className={styles.tableHeaderCell}>Unit</th>
+                  <th className={styles.tableHeaderCell}>Price (₱)</th>
+                  <th className={styles.tableHeaderCell}>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-4 flex justify-between">
+              </thead>
+              <tbody>
+                {currentInventory.map((item) => (
+                  <tr key={item.id} className={styles.tableRow}>
+                    <td className={styles.tableCell}>{item.name}</td>
+                    <td className={styles.tableCell}>{item.category}</td>
+                    <td className={styles.tableCell}>{item.supplier_name}</td>
+                    <td className={styles.tableCell}>{item.current_stock}</td>
+                    <td className={styles.tableCell}>{item.min_stock}</td>
+                    <td className={styles.tableCell}>{item.unit}</td>
+                    <td className={styles.tableCell}>₱{item.price.toLocaleString()}</td>
+                    <td className={styles.tableCell}>{item.stock_status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.paginationContainer}>
             <button
               onClick={() => setInventoryPage((prev) => Math.max(prev - 1, 1))}
               disabled={inventoryPage === 1}
-              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+              className={styles.paginationButton}
             >
               Previous
             </button>
-            <span>Page {inventoryPage} of {totalInventoryPages}</span>
+            <span className={styles.paginationText}>Page {inventoryPage} of {totalInventoryPages}</span>
             <button
               onClick={() => setInventoryPage((prev) => Math.min(prev + 1, totalInventoryPages))}
               disabled={inventoryPage === totalInventoryPages}
-              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+              className={styles.paginationButton}
             >
               Next
             </button>
@@ -263,115 +302,147 @@ const Report = () => {
       {/* Stock Adjustments Tab */}
       {activeTab === 'adjustments' && (
         <div>
-          <div className="mb-4">
-            <label className="mr-2">Start Date:</label>
-            <input
-              type="date"
-              value={adjustmentStart}
-              onChange={(e) => setAdjustmentStart(e.target.value)}
-              className="border p-1"
-            />
-            <label className="ml-4 mr-2">End Date:</label>
-            <input
-              type="date"
-              value={adjustmentEnd}
-              onChange={(e) => setAdjustmentEnd(e.target.value)}
-              className="border p-1"
-            />
-            <button
-              onClick={() => fetchAdjustmentData(adjustmentStart, adjustmentEnd)}
-              className="ml-4 px-4 py-2 bg-blue-500 text-white rounded"
+          <div className={styles.filterControls}>
+            <label className={styles.filterLabel}>Filter by:</label>
+            <select
+              value={adjustmentFilterType}
+              onChange={(e) => setAdjustmentFilterType(e.target.value)}
+              className={styles.filterSelect}
             >
-              Apply Filter
-            </button>
+              <option value="date">Date</option>
+              <option value="month">Month</option>
+            </select>
+            {adjustmentFilterType === 'date' && (
+              <DatePicker
+                selected={adjustmentSelectedPeriod}
+                onChange={(date) => {
+                  setAdjustmentSelectedPeriod(date);
+                  if (date) {
+                    const start = format(date, 'yyyy-MM-dd');
+                    const end = start;
+                    fetchAdjustmentData(start, end);
+                  }
+                }}
+                dateFormat="yyyy-MM-dd"
+                className={styles.filterInput}
+                placeholderText="Select a date"
+              />
+            )}
+            {adjustmentFilterType === 'month' && (
+              <DatePicker
+                selected={adjustmentSelectedPeriod}
+                onChange={(date) => {
+                  setAdjustmentSelectedPeriod(date);
+                  if (date) {
+                    const start = format(startOfMonth(date), 'yyyy-MM-dd');
+                    const end = format(endOfMonth(date), 'yyyy-MM-dd');
+                    fetchAdjustmentData(start, end);
+                  }
+                }}
+                dateFormat="yyyy-MM"
+                showMonthYearPicker
+                className={styles.filterInput}
+                placeholderText="Select a month"
+              />
+            )}
           </div>
-          <table className="min-w-full bg-white border border-gray-200 shadow rounded">
-            <thead className="bg-green-100 text-left">
-              <tr>
-                <th className="py-2 px-4 border-b">Adjustment ID</th>
-                <th className="py-2 px-4 border-b">Product</th>
-                <th className="py-2 px-4 border-b">Quantity</th>
-                <th className="py-2 px-4 border-b">Reason</th>
-                <th className="py-2 px-4 border-b">Notes</th>
-                <th className="py-2 px-4 border-b">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentAdjustments.map((adjustment) => (
-                <tr key={adjustment.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{adjustment.id}</td>
-                  <td className="py-2 px-4 border-b">{adjustment.product_name}</td>
-                  <td className="py-2 px-4 border-b">{adjustment.quantity}</td>
-                  <td className="py-2 px-4 border-b">{adjustment.reason}</td>
-                  <td className="py-2 px-4 border-b">{adjustment.notes}</td>
-                  <td className="py-2 px-4 border-b">{adjustment.date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-4 flex justify-between">
-            <button
-              onClick={() => setAdjustmentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={adjustmentPage === 1}
-              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span>Page {adjustmentPage} of {totalAdjustmentPages}</span>
-            <button
-              onClick={() => setAdjustmentPage((prev) => Math.min(prev + 1, totalAdjustmentPages))}
-              disabled={adjustmentPage === totalAdjustmentPages}
-              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+          {adjustmentSelectedPeriod ? (
+            <>
+              <div className={styles.tableContainer}>
+                <table className={styles.reportTable}>
+                  <thead className={styles.tableHeader}>
+                    <tr>
+                      <th className={styles.tableHeaderCell}>Adjustment ID</th>
+                      <th className={styles.tableHeaderCell}>Product</th>
+                      <th className={styles.tableHeaderCell}>Quantity</th>
+                      <th className={styles.tableHeaderCell}>Reason</th>
+                      <th className={styles.tableHeaderCell}>Notes</th>
+                      <th className={styles.tableHeaderCell}>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentAdjustments.map((adjustment) => (
+                      <tr key={adjustment.id} className={styles.tableRow}>
+                        <td className={styles.tableCell}>{adjustment.id}</td>
+                        <td className={styles.tableCell}>{adjustment.product_name}</td>
+                        <td className={styles.tableCell}>{adjustment.quantity}</td>
+                        <td className={styles.tableCell}>{adjustment.reason}</td>
+                        <td className={styles.tableCell}>{adjustment.notes}</td>
+                        <td className={styles.tableCell}>{adjustment.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className={styles.paginationContainer}>
+                <button
+                  onClick={() => setAdjustmentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={adjustmentPage === 1}
+                  className={styles.paginationButton}
+                >
+                  Previous
+                </button>
+                <span className={styles.paginationText}>Page {adjustmentPage} of {totalAdjustmentPages}</span>
+                <button
+                  onClick={() => setAdjustmentPage((prev) => Math.min(prev + 1, totalAdjustmentPages))}
+                  disabled={adjustmentPage === totalAdjustmentPages}
+                  className={styles.paginationButton}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          ) : (
+            <p>Please select a date or month to view the stock adjustments data.</p>
+          )}
         </div>
       )}
 
       {/* Receipt Modal */}
       {receiptData && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-6 rounded shadow-lg max-w-lg w-full">
-            <h3 className="text-xl font-bold mb-4">Receipt Details</h3>
-            <p><strong>Transaction ID:</strong> {receiptData.ref}</p>
-            <p><strong>Date:</strong> {receiptData.date}</p>
-            <p><strong>Subtotal:</strong> ₱{receiptData.subtotal.toLocaleString()}</p>
-            <p><strong>Discount:</strong> {receiptData.discount}%</p>
-            <p><strong>Total:</strong> ₱{receiptData.total.toLocaleString()}</p>
-            <p><strong>Payment:</strong> ₱{receiptData.payment.toLocaleString()}</p>
-            <p><strong>Change:</strong> ₱{receiptData.change.toLocaleString()}</p>
-            <h4 className="mt-4 font-bold">Products</h4>
-            <table className="min-w-full bg-white border border-gray-200 mt-2">
-              <thead>
-                <tr>
-                  <th className="py-2 px-4 border-b">Product</th>
-                  <th className="py-2 px-4 border-b">Quantity</th>
-                  <th className="py-2 px-4 border-b">Unit Price</th>
-                  <th className="py-2 px-4 border-b">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {receiptData.items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="py-2 px-4 border-b">{item.name}</td>
-                    <td className="py-2 px-4 border-b">{item.quantity}</td>
-                    <td className="py-2 px-4 border-b">₱{item.price.toLocaleString()}</td>
-                    <td className="py-2 px-4 border-b">₱{item.total.toLocaleString()}</td>
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContainer}>
+            <h3 className={styles.modalHeader}>Receipt Details</h3>
+            <div className={styles.modalContent}>
+              <p className={styles.receiptDetail}><strong>Transaction ID:</strong> {receiptData.ref}</p>
+              <p className={styles.receiptDetail}><strong>Date:</strong> {receiptData.date}</p>
+              <p className={styles.receiptDetail}><strong>Subtotal:</strong> ₱{receiptData.subtotal.toLocaleString()}</p>
+              <p className={styles.receiptDetail}><strong>Discount:</strong> {receiptData.discount}%</p>
+              <p className={styles.receiptDetail}><strong>Total:</strong> ₱{receiptData.total.toLocaleString()}</p>
+              <p className={styles.receiptDetail}><strong>Payment:</strong> ₱{receiptData.payment.toLocaleString()}</p>
+              <p className={styles.receiptDetail}><strong>Change:</strong> ₱{receiptData.change.toLocaleString()}</p>
+              <h4 className={styles.receiptItemsTitle}>Products</h4>
+              <table className={styles.reportTable}>
+                <thead className={styles.tableHeader}>
+                  <tr>
+                    <th className={styles.tableHeaderCell}>Product</th>
+                    <th className={styles.tableHeaderCell}>Quantity</th>
+                    <th className={styles.tableHeaderCell}>Unit Price</th>
+                    <th className={styles.tableHeaderCell}>Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-4 flex justify-end space-x-4">
+                </thead>
+                <tbody>
+                  {receiptData.items.map((item) => (
+                    <tr key={item.id} className={styles.tableRow}>
+                      <td className={styles.tableCell}>{item.name}</td>
+                      <td className={styles.tableCell}>{item.quantity}</td>
+                      <td className={styles.tableCell}>₱{item.price.toLocaleString()}</td>
+                      <td className={styles.tableCell}>₱{item.total.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className={styles.modalActions}>
               <button
                 onClick={() => setReceiptData(null)}
-                className="px-4 py-2 bg-red-500 text-white rounded"
+                className={styles.closeButton}
               >
                 Close
               </button>
               <button
                 onClick={() => window.print()}
-                className="px-4 py-2 bg-green-500 text-white rounded"
+                className={styles.printButton}
               >
                 Print
               </button>

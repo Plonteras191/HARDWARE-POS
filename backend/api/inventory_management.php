@@ -202,7 +202,7 @@ function addProduct($conn, $data) {
         
         // Add initial stock adjustment record
         if ($data['quantity'] > 0) {
-            $reason = 'initial';
+            $reason = 'stock added';
             $notes = 'Initial inventory setup';
             
             $stmt = $conn->prepare("INSERT INTO stock_adjustments (product_id, quantity, reason, notes) 
@@ -289,7 +289,7 @@ function updateProduct($conn, $id, $data) {
         if (isset($data['quantity']) && $data['quantity'] != $currentStock) {
             // Calculate difference
             $difference = $data['quantity'] - $currentStock;
-            $reason = 'correction';
+            $reason = $difference > 0 ? 'stock added' : 'stock remove';
             $notes = 'Stock correction from product update';
             
             // Add stock adjustment record
@@ -320,13 +320,14 @@ function updateProduct($conn, $id, $data) {
 // Function to adjust stock (add or remove)
 function adjustStock($conn, $id, $data) {
     // Validate required fields
-    if (!isset($data['amount']) || !isset($data['adjustmentType'])) {
-        echo json_encode(['error' => 'Missing amount or adjustment type']);
+    if (!isset($data['amount']) || !isset($data['adjustmentType']) || !isset($data['notes'])) {
+        echo json_encode(['error' => 'Missing amount, adjustment type, or notes']);
         return;
     }
     
     $amount = (int)$data['amount'];
     $adjustmentType = $data['adjustmentType'];
+    $notes = $data['notes']; // Admin notes
     
     if ($amount <= 0) {
         echo json_encode(['error' => 'Amount must be a positive number']);
@@ -372,8 +373,7 @@ function adjustStock($conn, $id, $data) {
         $stmt->execute();
         
         // Add stock adjustment record
-        $reason = $adjustmentType === 'add' ? 'purchase' : 'correction';
-        $notes = $adjustmentType === 'add' ? 'Stock added' : 'Stock removed';
+        $reason = $adjustmentType === 'add' ? 'stock added' : 'stock remove';
         
         $stmt = $conn->prepare("INSERT INTO stock_adjustments (product_id, quantity, reason, notes) 
                               VALUES (?, ?, ?, ?)");

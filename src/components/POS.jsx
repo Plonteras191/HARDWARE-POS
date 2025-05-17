@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import '../styles/pos.css'; // Ensure this path is correct
+import styles from '../styles/pos.module.css'; // Updated to use CSS module
 
 // API base URL
 const API_BASE_URL = 'http://localhost/HARD-POS/backend/api';
@@ -34,12 +34,10 @@ const POS = () => {
     const fetchProducts = async () => {
         try {
             setLoading(true);
-            // Ensure the backend endpoint provides supplier_name
             const response = await fetch(`${API_BASE_URL}/pos_api.php?action=products`);
             if (!response.ok) throw new Error('Failed to fetch products');
             const data = await response.json();
             if (data.error) throw new Error(data.error);
-            // Assuming data.products is an array of product objects including 'supplier_name'
             setProducts(data.products || []);
             setError(null);
         } catch (err) {
@@ -64,22 +62,18 @@ const POS = () => {
 
     const showNotification = (message, severity = 'info') => {
         setNotification({ open: true, message, severity });
-        // Clear notification after 6 seconds
         const timer = setTimeout(() => setNotification({ ...notification, open: false }), 6000);
-        // Clear any existing timer before setting a new one
         return () => clearTimeout(timer);
     };
 
     const showSaleCompleteNotification = () => {
         setSaleComplete(true);
-        // Hide sale complete notification after 3 seconds
         const timer = setTimeout(() => setSaleComplete(false), 3000);
         return () => clearTimeout(timer);
     };
 
     const filteredProducts = products.filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-        // Also include supplier name in search? Add || product.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) here if needed.
         const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
@@ -88,62 +82,48 @@ const POS = () => {
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.id === product.id);
             if (existingItem) {
-                // Check against available stock before increasing quantity
-                 const productInProducts = products.find(p => p.id === product.id);
-                 if (productInProducts && existingItem.quantity + 1 > productInProducts.stock) {
-                     showNotification(`Cannot add more. Only ${productInProducts.stock} units of ${product.name} available.`, 'warning');
-                     return prevCart; // Don't update cart
-                 }
+                const productInProducts = products.find(p => p.id === product.id);
+                if (productInProducts && existingItem.quantity + 1 > productInProducts.stock) {
+                    showNotification(`Cannot add more. Only ${productInProducts.stock} units of ${product.name} available.`, 'warning');
+                    return prevCart;
+                }
                 return prevCart.map(item =>
                     item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
                 );
             }
-            // Check against available stock for new item
             const productInProducts = products.find(p => p.id === product.id);
             if (productInProducts && 1 > productInProducts.stock) {
-                 showNotification(`Cannot add ${product.name}. Item is out of stock.`, 'warning');
-                 return prevCart; // Don't update cart
+                showNotification(`Cannot add ${product.name}. Item is out of stock.`, 'warning');
+                return prevCart;
             }
-
             return [...prevCart, { ...product, quantity: 1 }];
         });
     };
 
-     const updateQuantity = (productId, change) => {
+    const updateQuantity = (productId, change) => {
         setCart(prevCart => {
             const updatedCart = prevCart.map(item => {
                 if (item.id === productId) {
                     const newQuantity = item.quantity + change;
-
-                    // Find the product in the main products list to check stock
                     const productInProducts = products.find(p => p.id === productId);
                     const availableStock = productInProducts ? productInProducts.stock : 0;
-
-                    if (newQuantity <= 0) {
-                        // Quantity is zero or less, mark for removal
-                        return null;
-                    }
+                    if (newQuantity <= 0) return null;
                     if (newQuantity > availableStock) {
-                         showNotification(`Cannot add more. Only ${availableStock} units of ${item.name} available.`, 'warning');
-                         return item; // Return the item without changing quantity
+                        showNotification(`Cannot add more. Only ${availableStock} units of ${item.name} available.`, 'warning');
+                        return item;
                     }
-
                     return { ...item, quantity: newQuantity };
                 }
                 return item;
-            }).filter(Boolean); // Filter out items marked for removal
-
-            // If removing an item, check if cash received is still valid
+            }).filter(Boolean);
             if (prevCart.length > updatedCart.length) {
-                 const currentTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0) * (1 - (parseFloat(discount) || 0) / 100);
-                 if (parseFloat(cashReceived) < currentTotal && parseFloat(cashReceived) > 0) {
+                const currentTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0) * (1 - (parseFloat(discount) || 0) / 100);
+                if (parseFloat(cashReceived) < currentTotal && parseFloat(cashReceived) > 0) {
                     setCashReceivedError('Cash received is now less than the total.');
-                 } else {
-                     setCashReceivedError(''); // Clear error if sufficient
-                 }
+                } else {
+                    setCashReceivedError('');
+                }
             }
-
-
             return updatedCart;
         });
     };
@@ -151,19 +131,15 @@ const POS = () => {
     const removeFromCart = (productId) => {
         setCart(prevCart => {
             const updatedCart = prevCart.filter(item => item.id !== productId);
-
-            // Check if cash received is still valid after removing an item
             const currentTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0) * (1 - (parseFloat(discount) || 0) / 100);
-             if (parseFloat(cashReceived) < currentTotal && parseFloat(cashReceived) > 0) {
+            if (parseFloat(cashReceived) < currentTotal && parseFloat(cashReceived) > 0) {
                 setCashReceivedError('Cash received is now less than the total.');
             } else {
-                 setCashReceivedError(''); // Clear error if sufficient
+                setCashReceivedError('');
             }
-
             return updatedCart;
-         });
+        });
     };
-
 
     const getSubtotal = () => {
         return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -200,36 +176,33 @@ const POS = () => {
         setDiscount(value);
         if (value === '') {
             setDiscountError('');
-            // Re-validate cash received if total changes due to discount removal
-             if (parseFloat(cashReceived) < getSubtotal() && parseFloat(cashReceived) > 0) {
-                 setCashReceivedError('Cash received is now less than the total.');
-             } else {
-                 setCashReceivedError('');
-             }
+            if (parseFloat(cashReceived) < getSubtotal() && parseFloat(cashReceived) > 0) {
+                setCashReceivedError('Cash received is now less than the total.');
+            } else {
+                setCashReceivedError('');
+            }
             return;
         }
         const numValue = parseFloat(value);
         if (isNaN(numValue)) {
-             setDiscountError('Invalid number');
-             setCashReceivedError(''); // Clear cash error on discount error
+            setDiscountError('Invalid number');
+            setCashReceivedError('');
         } else if (numValue < 0) {
             setDiscountError('Discount cannot be negative');
-             setCashReceivedError(''); // Clear cash error on discount error
+            setCashReceivedError('');
         } else if (numValue > 100) {
             setDiscountError('Discount cannot exceed 100%');
-             setCashReceivedError(''); // Clear cash error on discount error
+            setCashReceivedError('');
         } else {
-             setDiscountError('');
-             // Re-validate cash received based on new total
-             const currentTotal = getSubtotal() * (1 - numValue / 100);
-             if (parseFloat(cashReceived) < currentTotal && parseFloat(cashReceived) > 0) {
-                 setCashReceivedError('Cash received is now less than the total.');
-             } else {
-                 setCashReceivedError('');
-             }
+            setDiscountError('');
+            const currentTotal = getSubtotal() * (1 - numValue / 100);
+            if (parseFloat(cashReceived) < currentTotal && parseFloat(cashReceived) > 0) {
+                setCashReceivedError('Cash received is now less than the total.');
+            } else {
+                setCashReceivedError('');
+            }
         }
     };
-
 
     const handleCashReceivedChange = (e) => {
         const value = e.target.value;
@@ -246,31 +219,27 @@ const POS = () => {
             setCashReceivedError('Cash cannot be negative');
         } else if (numValue < total && total > 0) {
             setCashReceivedError('Cash received is less than total');
-        }
-        else {
+        } else {
             setCashReceivedError('');
         }
     };
 
     const handleCheckout = () => {
         if (cart.length === 0) {
-             showNotification('Cart is empty.', 'warning');
-             return;
+            showNotification('Cart is empty.', 'warning');
+            return;
         }
-         if (discountError || cashReceivedError) {
-             showNotification('Please fix input errors before checkout.', 'warning');
-             return;
-         }
-
-         const total = getTotal();
-         const numCash = parseFloat(cashReceived);
-
-         if (isNaN(numCash) || numCash < total) {
-              setCashReceivedError('Cash received must be greater than or equal to total.');
-              showNotification('Please enter a valid cash amount.', 'warning');
-              return;
-         }
-
+        if (discountError || cashReceivedError) {
+            showNotification('Please fix input errors before checkout.', 'warning');
+            return;
+        }
+        const total = getTotal();
+        const numCash = parseFloat(cashReceived);
+        if (isNaN(numCash) || numCash < total) {
+            setCashReceivedError('Cash received must be greater than or equal to total.');
+            showNotification('Please enter a valid cash amount.', 'warning');
+            return;
+        }
         setReceiptOpen(true);
     };
 
@@ -279,19 +248,15 @@ const POS = () => {
             showNotification('Please verify all data before completing the sale.', 'warning');
             return;
         }
-
-         // Check stock levels one last time before committing
-         for (const item of cart) {
-             const productInProducts = products.find(p => p.id === item.id);
-              if (!productInProducts || item.quantity > productInProducts.stock) {
-                   showNotification(`Stock for ${item.name} changed. Available: ${productInProducts ? productInProducts.stock : 0}, Cart: ${item.quantity}. Please update cart.`, 'error');
-                   setReceiptOpen(false); // Close modal
-                   fetchProducts(); // Refresh product list
-                   return; // Stop transaction
-               }
-         }
-
-
+        for (const item of cart) {
+            const productInProducts = products.find(p => p.id === item.id);
+            if (!productInProducts || item.quantity > productInProducts.stock) {
+                showNotification(`Stock for ${item.name} changed. Available: ${productInProducts ? productInProducts.stock : 0}, Cart: ${item.quantity}. Please update cart.`, 'error');
+                setReceiptOpen(false);
+                fetchProducts();
+                return;
+            }
+        }
         try {
             const transactionData = {
                 transactionId,
@@ -300,29 +265,21 @@ const POS = () => {
                 discount: discount ? parseFloat(discount) : 0,
                 total: getTotal(),
                 cashReceived: parseFloat(cashReceived),
-                notes: '' // Add notes field if needed
+                notes: ''
             };
-
             const response = await fetch(`${API_BASE_URL}/pos_api.php?action=create-transaction`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(transactionData)
             });
             const data = await response.json();
-
             if (data.error) {
-                 // Rollback on the frontend side (clear cart, etc.) but based on backend error
-                 setReceiptOpen(false); // Close receipt modal
-                 showNotification(`Transaction failed: ${data.error}`, 'error');
-                 fetchProducts(); // Refresh products to show correct stock
-                 // Optionally clear cart or adjust based on specific error
-                 // If the error is due to stock, the user needs to see updated stock and adjust cart
-                 return;
+                setReceiptOpen(false);
+                showNotification(`Transaction failed: ${data.error}`, 'error');
+                fetchProducts();
+                return;
             }
-
-            // If success
             showSaleCompleteNotification();
-
             setReceiptOpen(false);
             setCart([]);
             setDiscount('');
@@ -330,13 +287,10 @@ const POS = () => {
             setCashReceived('');
             setCashReceivedError('');
             setTransactionId(generateTransactionId());
-            fetchProducts(); // Refresh products to show decreased stock
-            // Optionally trigger printing the receipt here if needed
-            // handlePrintReceipt();
-
+            fetchProducts();
         } catch (err) {
-             setReceiptOpen(false); // Close receipt modal
-             showNotification(`Network or server error: ${err.message}`, 'error');
+            setReceiptOpen(false);
+            showNotification(`Network or server error: ${err.message}`, 'error');
         }
     };
 
@@ -346,58 +300,31 @@ const POS = () => {
     };
 
     const isCompleteSaleDisabled = () => {
-        if (cart.length === 0) return true; // Disable if cart is empty
+        if (cart.length === 0) return true;
         if (discountError || cashReceivedError) return true;
         const numCash = parseFloat(cashReceived);
         const total = getTotal();
-        // Disable if cash received is not a valid number, is negative, or is less than the total
         return isNaN(numCash) || numCash < 0 || numCash < total;
     };
 
-     // Optional: Handle printing the receipt (requires a library or browser print)
-    // const handlePrintReceipt = () => {
-    //     if (receiptRef.current) {
-    //         const printWindow = window.open('', '_blank');
-    //         printWindow.document.write('<html><head><title>Receipt</title>');
-    //         // Copy styles from the main window, or use a dedicated print stylesheet
-    //         printWindow.document.write('<link rel="stylesheet" href="../styles/pos.css">'); // Ensure this path is correct for the print window context
-    //         printWindow.document.write('<style>');
-    //         // Add specific print styles if needed, e.g., hide buttons
-    //         printWindow.document.write('@media print { .modal-actions, .modal-backdrop { display: none; } body { margin: 0; } .receipt { width: 80mm; margin: 0 auto; padding: 10mm; font-size: 12px; } }');
-    //         printWindow.document.write('</style>');
-    //         printWindow.document.write('</head><body>');
-    //         printWindow.document.write('<div class="receipt-print-area">' + receiptRef.current.innerHTML + '</div>'); // Wrap receipt content
-    //         printWindow.document.write('</body></html>');
-    //         printWindow.document.close();
-
-    //         // Wait for content to load before printing
-    //         printWindow.onload = () => {
-    //             printWindow.print();
-    //             // Optionally close the window after printing, though behavior varies by browser
-    //             // printWindow.close();
-    //         };
-    //     }
-    // };
-
-
     return (
-        <div className="pos-container">
-            <div className="pos-products">
-                <div className="search-bar">
+        <div className={styles.posContainer}>
+            <div className={styles.posProducts}>
+                <div className={styles.searchBar}>
                     <input
                         type="text"
                         placeholder="Search products..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <span className="search-icon">🔍</span>
+                    <span className={styles.searchIcon}>🔍</span>
                 </div>
 
-                <div className="category-filter">
+                <div className={styles.categoryFilter}>
                     {categories.map(category => (
                         <button
                             key={category}
-                            className={`category-button ${selectedCategory === category ? 'active' : ''}`}
+                            className={`${styles.categoryButton} ${selectedCategory === category ? styles.active : ''}`}
                             onClick={() => setSelectedCategory(category)}
                         >
                             {category}
@@ -405,32 +332,31 @@ const POS = () => {
                     ))}
                 </div>
 
-                <div className="product-grid">
+                <div className={styles.productGrid}>
                     {loading ? (
-                        <div className="loading">
-                            <div className="spinner"></div>
+                        <div className={styles.loading}>
+                            <div className={styles.spinner}></div>
                             <p>Loading products...</p>
                         </div>
                     ) : error ? (
-                        <div className="error">
-                            <i className="error-icon">⚠️</i>
+                        <div className={styles.error}>
+                            <i className={styles.errorIcon}>⚠️</i>
                             <p>{error}</p>
                         </div>
                     ) : filteredProducts.length === 0 ? (
-                        <div className="no-products">
-                            <i className="empty-icon">📦</i>
+                        <div className={styles.noProducts}>
+                            <i className={styles.emptyIcon}>📦</i>
                             <p>No products found</p>
                         </div>
                     ) : (
                         filteredProducts.map(product => (
-                            <div key={product.id} className="product-card" onClick={() => addToCart(product)}>
-                                <div className="product-info">
-                                    <p className="product-name">{product.name}</p>
-                                    {/* Add Supplier Name Here */}
-                                    <p className="product-supplier">Supplier: {product.supplier_name}</p>
-                                    <p className="product-price">₱{product.price.toFixed(2)}</p>
-                                    <p className="product-stock">
-                                        <span className={`stock-indicator ${parseInt(product.stock) > 10 ? 'in-stock' : parseInt(product.stock) > 0 ? 'low-stock' : 'out-stock'}`}></span>
+                            <div key={product.id} className={styles.productCard} onClick={() => addToCart(product)}>
+                                <div className={styles.productInfo}>
+                                    <p className={styles.productName}>{product.name}</p>
+                                    <p className={styles.productSupplier}>Supplier: {product.supplier_name}</p>
+                                    <p className={styles.productPrice}>₱{product.price.toFixed(2)}</p>
+                                    <p className={styles.productStock}>
+                                        <span className={`${styles.stockIndicator} ${parseInt(product.stock) > 10 ? styles.inStock : parseInt(product.stock) > 0 ? styles.lowStock : styles.outStock}`}></span>
                                         Stock: {product.stock} {product.unit}
                                     </p>
                                 </div>
@@ -440,39 +366,39 @@ const POS = () => {
                 </div>
             </div>
 
-            <div className="pos-cart">
-                <h2 className="cart-title">YOUR CART</h2>
-                <hr className="cart-divider" />
-                <div className="cart-items">
-                    {cart.length === 0 &&
-                        <div className="empty-cart">
-                            <i className="cart-icon">🛒</i>
+            <div className={styles.posCart}>
+                <h2 className={styles.cartTitle}>YOUR CART</h2>
+                <hr className={styles.cartDivider} />
+                <div className={styles.cartItems}>
+                    {cart.length === 0 && (
+                        <div className={styles.emptyCart}>
+                            <i className={styles.cartIcon}>🛒</i>
                             <p>Your cart is empty</p>
                         </div>
-                    }
+                    )}
                     {cart.map(item => (
-                        <div key={item.id} className="cart-item">
-                            <div className="cart-item-info">
-                                <p className="item-name">{item.name}</p>
-                                <p className="item-details">₱{item.price.toFixed(2)} x {item.quantity} {item.unit || ''}</p>
-                                <p className="item-total">₱{(item.price * item.quantity).toFixed(2)}</p>
+                        <div key={item.id} className={styles.cartItem}>
+                            <div className={styles.cartItemInfo}>
+                                <p className={styles.itemName}>{item.name}</p>
+                                <p className={styles.itemDetails}>₱{item.price.toFixed(2)} x {item.quantity} {item.unit || ''}</p>
+                                <p className={styles.itemTotal}>₱{(item.price * item.quantity).toFixed(2)}</p>
                             </div>
-                            <div className="cart-item-quantity">
-                                <button onClick={() => updateQuantity(item.id, -1)} className="qty-btn decrease">−</button>
-                                <span className="qty-value">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.id, 1)} className="qty-btn increase">+</button>
-                                <button onClick={() => removeFromCart(item.id)} className="delete-btn">
-                                    <span className="delete-icon">🗑️</span>
+                            <div className={styles.cartItemQuantity}>
+                                <button onClick={() => updateQuantity(item.id, -1)} className={`${styles.qtyBtn} ${styles.decrease}`}>−</button>
+                                <span className={styles.qtyValue}>{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.id, 1)} className={`${styles.qtyBtn} ${styles.increase}`}>+</button>
+                                <button onClick={() => removeFromCart(item.id)} className={styles.deleteBtn}>
+                                    <span className={styles.deleteIcon}>🗑️</span>
                                 </button>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {cart.length > 0 && <hr className="cart-divider" />}
+                {cart.length > 0 && <hr className={styles.cartDivider} />}
 
-                <div className="discount-cash-section">
-                    <div className="input-group">
+                <div className={styles.discountCashSection}>
+                    <div className={styles.inputGroup}>
                         <label>Discount (%)</label>
                         <input
                             type="number"
@@ -482,9 +408,9 @@ const POS = () => {
                             max="100"
                             placeholder="0"
                         />
-                        {discountError && <p className="error">{discountError}</p>}
+                        {discountError && <p className={styles.error}>{discountError}</p>}
                     </div>
-                    <div className="input-group">
+                    <div className={styles.inputGroup}>
                         <label>Cash Received</label>
                         <input
                             type="number"
@@ -493,130 +419,123 @@ const POS = () => {
                             min="0"
                             step="0.01"
                             placeholder="0.00"
-                            className={getTotal() > 0 && !cashReceived && !cashReceivedError ? "highlight-input" : ""}
+                            className={getTotal() > 0 && !cashReceived && !cashReceivedError ? styles.highlightInput : ""}
                         />
-                        {cashReceivedError && <p className="error">{cashReceivedError}</p>}
+                        {cashReceivedError && <p className={styles.error}>{cashReceivedError}</p>}
                     </div>
                 </div>
 
-                <div className="cart-summary">
-                    <div className="summary-line">
+                <div className={styles.cartSummary}>
+                    <div className={styles.summaryLine}>
                         <span>Subtotal:</span>
                         <span>₱{getSubtotal().toFixed(2)}</span>
                     </div>
-                    <div className="summary-line">
+                    <div className={styles.summaryLine}>
                         <span>Discount {discount && !discountError && parseFloat(discount) > 0 ? `(${parseFloat(discount)}%)` : ''}:</span>
                         <span>- ₱{getDiscountAmount().toFixed(2)}</span>
                     </div>
-                    <hr className="summary-divider" />
-                    <div className="summary-total">
+                    <hr className={styles.summaryDivider} />
+                    <div className={styles.summaryTotal}>
                         <span>Total:</span>
                         <span>₱{getTotal().toFixed(2)}</span>
                     </div>
-                     {/* Only show Cash Received and Change if Total is greater than 0 or cashReceived is entered */}
                     {(getTotal() > 0 || cashReceived > 0) && (
                         <>
-                            <div className="summary-line">
+                            <div className={styles.summaryLine}>
                                 <span>Cash Received:</span>
                                 <span>₱{displayableCashReceived().toFixed(2)}</span>
                             </div>
-                            <div className="summary-line">
+                            <div className={styles.summaryLine}>
                                 <span>Change:</span>
-                                <span className="change-amount">₱{getChange().toFixed(2)}</span>
+                                <span className={styles.changeAmount}>₱{getChange().toFixed(2)}</span>
                             </div>
                         </>
                     )}
                     <button
-                        className="checkout-button"
+                        className={styles.checkoutButton}
                         onClick={handleCheckout}
-                        disabled={cart.length === 0 || !!discountError || !!cashReceivedError || getTotal() <= 0} // Disable if total is 0 or less
+                        disabled={cart.length === 0 || !!discountError || !!cashReceivedError || getTotal() <= 0}
                     >
-                        <span className="checkout-icon">💳</span> Checkout
+                        <span className={styles.checkoutIcon}>💳</span> SELL
                     </button>
                 </div>
             </div>
 
             {receiptOpen && (
-                <div className="modal-backdrop">
-                    <div className="modal-content">
-                        <h2 className="receipt-header">Transaction Summary</h2>
-                        <div className="receipt" ref={receiptRef}>
-                            <div className="receipt-store">
+                <div className={styles.modalBackdrop}>
+                    <div className={styles.modalContent}>
+                        <h2 className={styles.receiptHeader}>Transaction Summary</h2>
+                        <div className={styles.receipt} ref={receiptRef}>
+                            <div className={styles.receiptStore}>
                                 <h3>HARD-POS STORE</h3>
-                                <p className="receipt-transaction">Transaction: {transactionId}</p>
-                                <p className="receipt-date">{formatDateTime()}</p>
+                                <p className={styles.receiptTransaction}>Transaction: {transactionId}</p>
+                                <p className={styles.receiptDate}>{formatDateTime()}</p>
                             </div>
-                            <hr className="receipt-divider" />
-                            <div className="receipt-items">
+                            <hr className={styles.receiptDivider} />
+                            <div className={styles.receiptItems}>
                                 {cart.map((item, index) => (
-                                    <div key={index} className="receipt-item">
+                                    <div key={index} className={styles.receiptItem}>
                                         <span>{item.quantity}x {item.name}</span>
                                         <span>₱{(item.price * item.quantity).toFixed(2)}</span>
                                     </div>
                                 ))}
                             </div>
-                            <hr className="receipt-divider" />
-                            <div className="receipt-summary">
+                            <hr className={styles.receiptDivider} />
+                            <div className={styles.receiptSummary}>
                                 <span>Subtotal:</span>
                                 <span>₱{getSubtotal().toFixed(2)}</span>
                             </div>
-                            {getDiscountAmount() > 0 && ( // Only show discount if applied
-                                <div className="receipt-summary">
+                            {getDiscountAmount() > 0 && (
+                                <div className={styles.receiptSummary}>
                                     <span>Discount {discount && !discountError && parseFloat(discount) > 0 ? `(${parseFloat(discount)}%)` : ''}:</span>
                                     <span>- ₱{getDiscountAmount().toFixed(2)}</span>
                                 </div>
                             )}
-                            <hr className="receipt-divider" />
-                            <div className="receipt-total">
+                            <hr className={styles.receiptDivider} />
+                            <div className={styles.receiptTotal}>
                                 <span>Total:</span>
                                 <span>₱{getTotal().toFixed(2)}</span>
                             </div>
-                             {/* Only show Cash Tendered and Change in receipt if total is > 0 */}
                             {getTotal() > 0 && (
                                 <>
-                                    <div className="receipt-summary">
+                                    <div className={styles.receiptSummary}>
                                         <span>Cash Tendered:</span>
                                         <span>₱{displayableCashReceived().toFixed(2)}</span>
                                     </div>
-                                    <div className="receipt-summary">
+                                    <div className={styles.receiptSummary}>
                                         <span>Change:</span>
                                         <span>₱{getChange().toFixed(2)}</span>
                                     </div>
                                 </>
                             )}
-                            <hr className="receipt-divider" />
-                            <div className="receipt-footer">
+                            <hr className={styles.receiptDivider} />
+                            <div className={styles.receiptFooter}>
                                 <p>Thank you for your purchase!</p>
                                 <p>Please come again</p>
                             </div>
                         </div>
-                        <div className="modal-actions">
-                            <button className="cancel-btn" onClick={() => setReceiptOpen(false)}>
-                                <span className="btn-icon">✖</span> Cancel
+                        <div className={styles.modalActions}>
+                            <button className={styles.cancelBtn} onClick={() => setReceiptOpen(false)}>
+                                <span className={styles.btnIcon}>✖</span> Cancel
                             </button>
                             <button
-                                className="complete-btn"
+                                className={styles.completeBtn}
                                 onClick={completeTransaction}
                                 disabled={isCompleteSaleDisabled()}
                             >
-                                <span className="btn-icon">✓</span> Complete Sale
+                                <span className={styles.btnIcon}>✓</span> Complete Sale
                             </button>
-                             {/* Optional: Print button */}
-                            {/* <button className="print-btn" onClick={handlePrintReceipt}>
-                                <span className="btn-icon">⎙</span> Print Receipt
-                            </button> */}
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className={`notification ${notification.open ? 'open' : ''} ${notification.severity}`}>
+            <div className={`${styles.notification} ${notification.open ? styles.open : ''} ${styles[notification.severity]}`}>
                 {notification.message}
             </div>
 
-            {/* Sale complete notification */}
-            <div className={`sale-complete-notification ${saleComplete ? 'show' : ''}`}>
-                <div className="checkmark">✓</div>
+            <div className={`${styles.saleCompleteNotification} ${saleComplete ? styles.show : ''}`}>
+                <div className={styles.checkmark}>✓</div>
                 <p>Sale Completed Successfully!</p>
             </div>
         </div>

@@ -1,0 +1,214 @@
+/* styles/dash.module.css */
+.dashboardContainer {
+  padding: 1.5rem;
+  background-color: #f9fafb;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.dashboardTitle {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: #111827;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .cardsGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.card {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.25rem;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.cardTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.cardAmount {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.todaySales {
+  color: #2563eb;
+}
+
+.weeklySales {
+  color: #10b981;
+}
+
+.monthlySales {
+  color: #d97706;
+}
+
+.allTimeSales {
+  color: #8b5cf6;
+}
+
+.cardTransactions {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.chartContainer {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.chartTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.chartWrapper {
+  height: 20rem;
+  width: 100%;
+}
+
+.twoColumnsGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .twoColumnsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pieChartWrapper {
+  height: 16rem;
+  width: 100%;
+}
+
+.inventoryStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.inventoryStat {
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.wellStocked {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.lowStock {
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+.outOfStock {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.wellStockedValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.lowStockValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.outOfStockValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.loadingText {
+  text-align: center;
+}
+
+.loadingMessage {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.errorText {
+  text-align: center;
+  color: #dc2626;
+}
+
+.errorMessage {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.retryButton {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.retryButton:hover {
+  background-color: #1d4ed8;
+}
