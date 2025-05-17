@@ -17,7 +17,11 @@ const InventoryManagement = () => {
         price: '',
         minStock: ''
     });
-    const [activeTab, setActiveTab] = useState(0); // 0 for Active, 1 for Removed
+    const [formErrors, setFormErrors] = useState({
+        name: '',
+        supplier_name: ''
+    });
+    const [activeTab, setActiveTab] = useState(0);
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -58,12 +62,10 @@ const InventoryManagement = () => {
             }
             const data = await response.json();
             if (data.products) {
-                // Ensure correct filtering based on isRemoved
                 const filteredProducts = data.products.filter(item =>
                     activeTab === 0 ? !item.isRemoved : item.isRemoved
                 );
                 setInventory(filteredProducts);
-                // Debug log to verify isRemoved values
                 console.log('Fetched inventory:', filteredProducts.map(item => ({
                     id: item.id,
                     name: item.name,
@@ -98,9 +100,10 @@ const InventoryManagement = () => {
             setNotification({
                 open: true,
                 message: `Low stock alert: ${lowStockItems.map(item => item.name).join(', ')} ${lowStockItems.length === 1 ? 'is' : 'are'} running low.`,
-                severity: 'warning',
-                autoHideDuration: 6000
+                severity: 'warning'
             });
+        } else if (notification.severity === 'warning') {
+            setNotification(prev => ({ ...prev, open: false }));
         }
     }, [inventory, activeTab]);
 
@@ -139,12 +142,14 @@ const InventoryManagement = () => {
                 minStock: ''
             });
         }
+        setFormErrors({ name: '', supplier_name: '' });
         setOpenDialog(true);
     };
 
     const handleCloseDialog = () => {
         setOpenDialog(false);
         setEditingItem(null);
+        setFormErrors({ name: '', supplier_name: '' });
     };
 
     const handleInputChange = (e) => {
@@ -152,6 +157,10 @@ const InventoryManagement = () => {
         setFormData(prev => ({
             ...prev,
             [name]: value
+        }));
+        setFormErrors(prev => ({
+            ...prev,
+            [name]: ''
         }));
     };
 
@@ -306,7 +315,6 @@ const InventoryManagement = () => {
                         severity: 'success'
                     });
 
-                    // Optimistically remove from current tab
                     setInventory(prevInventory =>
                         prevInventory.filter(invItem => invItem.id !== id)
                     );
@@ -352,6 +360,21 @@ const InventoryManagement = () => {
         }
         if (productData.quantity < 0 || productData.price < 0 || productData.minStock < 0) {
             setNotification({ open: true, message: 'Quantity, Price, and Min Stock cannot be negative.', severity: 'error' });
+            return;
+        }
+
+        const duplicateName = !editingItem && inventory.some(item => 
+            item.name.toLowerCase() === formData.name.toLowerCase() && !item.isRemoved
+        );
+        const duplicateSupplier = !editingItem && inventory.some(item => 
+            item.supplier_name.toLowerCase() === formData.supplier_name.toLowerCase() && !item.isRemoved
+        );
+
+        if (duplicateName || duplicateSupplier) {
+            setFormErrors({
+                name: duplicateName ? 'Product name already exists.' : '',
+                supplier_name: duplicateSupplier ? 'Supplier already exists.' : ''
+            });
             return;
         }
 
@@ -445,7 +468,6 @@ const InventoryManagement = () => {
                         setPage(0);
                     }}
                 />
-                <span className="search-icon">🔍</span>
             </div>
 
             <div className="tabs">
@@ -545,7 +567,7 @@ const InventoryManagement = () => {
                             disabled={page >= totalPages - 1 || paginatedInventory.length === 0}
                             onClick={() => handleChangePage(page + 1)}
                         >
-                            Next &gt;
+                            Next {'>'}
                         </button>
                         <select 
                             className="rows-per-page" 
@@ -639,7 +661,11 @@ const InventoryManagement = () => {
                                         value={formData.name}
                                         onChange={handleInputChange}
                                         required
+                                        className={formErrors.name ? 'error' : ''}
                                     />
+                                    {formErrors.name && (
+                                        <span className="error-message">{formErrors.name}</span>
+                                    )}
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="category">Category</label>
@@ -661,7 +687,11 @@ const InventoryManagement = () => {
                                         value={formData.supplier_name}
                                         onChange={handleInputChange}
                                         required
+                                        className={formErrors.supplier_name ? 'error' : ''}
                                     />
+                                    {formErrors.supplier_name && (
+                                        <span className="error-message">{formErrors.supplier_name}</span>
+                                    )}
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="quantity">Quantity</label>
@@ -675,7 +705,7 @@ const InventoryManagement = () => {
                                         required
                                         disabled={!!editingItem}
                                     />
-                                    {editingItem && (
+                                        {editingItem && (
                                         <small className="helper-text">Quantity is managed via Add/Remove Stock actions.</small>
                                     )}
                                 </div>

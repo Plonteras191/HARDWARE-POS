@@ -20,7 +20,8 @@ import {
     Inventory as InventoryIcon,
     PointOfSale as POSIcon,
     Dashboard as DashboardIcon,
-    Menu as MenuIcon
+    Menu as MenuIcon,
+    Assessment as ReportIcon
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -28,7 +29,8 @@ const drawerWidth = 240;
 const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
-    { text: 'POS', icon: <POSIcon />, path: '/pos' }
+    { text: 'POS', icon: <POSIcon />, path: '/pos' },
+    { text: 'Report', icon: <ReportIcon />, path: '/report' }
 ];
 
 const Sidebar = () => {
@@ -47,6 +49,7 @@ const Sidebar = () => {
         if (path === '/dashboard') return 'Dashboard';
         if (path === '/inventory') return 'Inventory Management';
         if (path === '/pos') return 'Point of Sale';
+        if (path === '/report') return 'Sales Report';
         return '';
     };
 

@@ -272,15 +272,17 @@ function updateProduct($conn, $id, $data) {
         $stmt = $conn->prepare("UPDATE products 
                               SET name = ?, category_id = ?, supplier_name = ?, price = ?, unit = ?, min_stock = ? 
                               WHERE product_id = ?");
-        $stmt->bind_param("sisdsi", 
-            $data['name'], 
-            $categoryId,
-            $data['supplier_name'],
-            $data['price'], 
-            $data['unit'], 
-            $data['minStock'], 
-            $id
-        );
+       $stmt->bind_param(
+  "sisdsii",           // ← CORRECT: 7 letters
+  $data['name'],       // s
+  $categoryId,         // i
+  $data['supplier_name'], // s
+  $data['price'],      // d
+  $data['unit'],       // s
+  $data['minStock'],   // i
+  $id                  // i
+);
+
         $stmt->execute();
         
         // If stock quantity was included in the update and changed, add an adjustment record

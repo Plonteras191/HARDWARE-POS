@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import InventoryManagement from './components/InventoryManagement';
 import POS from './components/POS';
-import Sidebar from './components/Sidebar'; // Import the Sidebar component
+import Sidebar from './components/Sidebar';
+import Report from './components/Report';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 
 const theme = createTheme({
@@ -26,6 +27,7 @@ function App() {
             <Route path="/inventory" element={<InventoryManagement />} />
             <Route path="/pos" element={<POS />} />
             <Route path="/dashboard" element={<div>Dashboard Content</div>} />
+            <Route path="/report" element={<Report />} />
           </Route>
         </Routes>
       </Router>

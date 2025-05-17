@@ -1,241 +1,363 @@
 <?php
-require_once 'db_connection.php'; // Includes DB connection, sets headers, handles OPTIONS
+// Very important: This should be at the top of the file
+// Disable displaying errors to prevent HTML in JSON output
+ini_set('display_errors', 0);
+error_reporting(E_ALL); // Still log errors, but don't display them
 
+require_once '../cors_handler.php';
+
+// pos_api.php - API endpoints for Point of Sale operations
+require_once '../db_connection.php';
+
+// Get the HTTP request method
 $method = $_SERVER['REQUEST_METHOD'];
-$action = isset($_GET['action']) ? $_GET['action'] : null;
 
-// Basic input sanitization helper
-function sanitize_input($conn, $data) {
-    if (is_array($data)) {
-        return array_map(function($item) use ($conn) {
-            return sanitize_input($conn, $item);
-        }, $data);
-    }
-    return $conn->real_escape_string(trim(htmlspecialchars($data)));
+// Get request body for POST, PUT methods
+$data = json_decode(file_get_contents('php://input'), true);
+
+// Check if JSON parsing failed
+if (json_last_error() !== JSON_ERROR_NONE && ($method === 'POST' || $method === 'PUT')) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Invalid JSON: ' . json_last_error_msg()]);
+    exit;
 }
 
+// Add proper content type header for all responses
+header('Content-Type: application/json');
 
-if ($method === 'GET') {
-    if ($action === 'products') {
-        try {
-            $searchTerm = isset($_GET['search']) ? sanitize_input($conn, $_GET['search']) : '';
-            $categoryFilter = isset($_GET['category']) ? sanitize_input($conn, $_GET['category']) : 'All';
+// Endpoint router
+switch ($method) {
+    case 'GET':
+        if (isset($_GET['action']) && $_GET['action'] === 'products') {
+            // Get all active products for POS
+            getPOSProducts($conn);
+        } elseif (isset($_GET['action']) && $_GET['action'] === 'categories') {
+            // Get categories for filter
+            getCategories($conn);
+        } elseif (isset($_GET['action']) && $_GET['action'] === 'transactions') {
+            // Get transactions history (with optional date filters)
+            $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : null;
+            $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : null;
+            getTransactions($conn, $startDate, $endDate);
+        } elseif (isset($_GET['transaction_id'])) {
+            // Get details of a specific transaction
+            getTransactionDetails($conn, $_GET['transaction_id']);
+        } else {
+            echo json_encode(['error' => 'Invalid action']);
+        }
+        break;
+    case 'POST':
+        if (isset($_GET['action']) && $_GET['action'] === 'create-transaction') {
+            // Create a new sales transaction
+            createTransaction($conn, $data);
+        } else {
+            echo json_encode(['error' => 'Invalid action']);
+        }
+        break;
+    default:
+        echo json_encode(['error' => 'Method not allowed']);
+        break;
+}
 
-            $sql = "SELECT p.product_id, p.name, c.name as category_name, p.price, p.current_stock
-                    FROM products p
-                    JOIN categories c ON p.category_id = c.category_id
-                    WHERE p.is_active = 1";
+// Function to get all active products for POS display
+function getPOSProducts($conn) {
+    try {
+        $sql = "SELECT p.*, c.name as category_name 
+                FROM products p
+                JOIN categories c ON p.category_id = c.category_id
+                WHERE p.is_active = 1
+                ORDER BY p.name ASC";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $products = [];
+        while ($row = $result->fetch_assoc()) {
+            // Format product data
+            $products[] = [
+                'id' => (int)$row['product_id'],
+                'name' => $row['name'],
+                'category' => $row['category_name'],
+                'price' => (float)$row['price'],
+                'stock' => (int)$row['current_stock'],
+                'unit' => $row['unit'],
+                'supplier_name' => $row['supplier_name']
+            ];
+        }
+        
+        echo json_encode(['products' => $products]);
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
 
-            $params = [];
-            $types = "";
+// Function to get all categories for filter
+function getCategories($conn) {
+    try {
+        $stmt = $conn->prepare("SELECT category_id, name FROM categories ORDER BY name ASC");
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $categories = [];
+        while ($row = $result->fetch_assoc()) {
+            $categories[] = [
+                'id' => (int)$row['category_id'],
+                'name' => $row['name']
+            ];
+        }
+        
+        echo json_encode(['categories' => $categories]);
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
 
-            if (!empty($searchTerm)) {
-                $sql .= " AND (p.name LIKE ? OR c.name LIKE ?)";
-                $search_like = "%" . $searchTerm . "%";
-                array_push($params, $search_like, $search_like);
-                $types .= "ss";
+// Function to create a new transaction
+function createTransaction($conn, $data) {
+    // Validate required fields
+    if (empty($data['transactionId']) || empty($data['items']) || !isset($data['subtotal']) || 
+        !isset($data['total']) || !isset($data['cashReceived'])) {
+        echo json_encode(['error' => 'Missing required transaction data']);
+        return;
+    }
+    
+    // Validate items
+    if (!is_array($data['items']) || count($data['items']) === 0) {
+        echo json_encode(['error' => 'Transaction must contain at least one item']);
+        return;
+    }
+    
+    try {
+        // Begin transaction
+        $conn->begin_transaction();
+        
+        // Check if transaction reference already exists
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM transactions WHERE transaction_ref = ?");
+        $stmt->bind_param("s", $data['transactionId']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $transactionExists = $result->fetch_assoc()['count'] > 0;
+        
+        if ($transactionExists) {
+            $conn->rollback();
+            echo json_encode(['error' => 'Transaction reference already exists']);
+            return;
+        }
+        
+        // Calculate values
+        $subtotal = (float)$data['subtotal'];
+        $discount = isset($data['discount']) ? (float)$data['discount'] : 0;
+        $total = (float)$data['total'];
+        $cashReceived = (float)$data['cashReceived'];
+        $change = $cashReceived - $total;
+        
+        // Insert transaction record
+        $stmt = $conn->prepare("INSERT INTO transactions (transaction_ref, discount_percentage, subtotal, total_amount, payment_amount, change_amount, notes) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $notes = isset($data['notes']) ? $data['notes'] : null;
+        $stmt->bind_param("sddddds", 
+            $data['transactionId'], 
+            $discount,
+            $subtotal,
+            $total,
+            $cashReceived,
+            $change,
+            $notes
+        );
+        $stmt->execute();
+        
+        $transactionId = $conn->insert_id;
+        
+        // Process each item
+        foreach ($data['items'] as $item) {
+            // Validate item data
+            if (empty($item['id']) || empty($item['quantity']) || !isset($item['price'])) {
+                $conn->rollback();
+                echo json_encode(['error' => 'Invalid item data in transaction']);
+                return;
             }
-
-            if ($categoryFilter !== 'All' && !empty($categoryFilter)) {
-                $sql .= " AND c.name = ?";
-                array_push($params, $categoryFilter);
-                $types .= "s";
-            }
-            $sql .= " ORDER BY p.name ASC";
-
-            $stmt = $conn->prepare($sql);
-            if (!$stmt) {
-                throw new Exception("Prepare statement failed (products): " . $conn->error);
-            }
-
-            if (!empty($types)) {
-                $stmt->bind_param($types, ...$params);
-            }
-
+            
+            $productId = (int)$item['id'];
+            $quantity = (int)$item['quantity'];
+            $unitPrice = (float)$item['price'];
+            $lineTotal = $quantity * $unitPrice;
+            
+            // Check if product exists and has enough stock
+            $stmt = $conn->prepare("SELECT name, current_stock FROM products WHERE product_id = ?");
+            $stmt->bind_param("i", $productId);
             $stmt->execute();
             $result = $stmt->get_result();
-            $products = [];
-            while ($row = $result->fetch_assoc()) {
-                $products[] = [
-                    'id' => $row['product_id'],
-                    'name' => $row['name'],
-                    'category' => $row['category_name'],
-                    'price' => floatval($row['price']),
-                    'stock' => intval($row['current_stock'])
-                ];
+            
+            if ($result->num_rows === 0) {
+                $conn->rollback();
+                echo json_encode(['error' => 'Product not found: ID ' . $productId]);
+                return;
             }
-            $stmt->close();
-            echo json_encode($products);
-
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(["error" => "Failed to fetch products: " . $e->getMessage()]);
-            error_log("GET products (POS) error: " . $e->getMessage());
+            
+            $row = $result->fetch_assoc();
+            $currentStock = (int)$row['current_stock'];
+            $productName = $row['name'];
+            
+            if ($currentStock < $quantity) {
+                $conn->rollback();
+                echo json_encode([
+                    'error' => "Insufficient stock for {$productName}. Available: {$currentStock}, Requested: {$quantity}"
+                ]);
+                return;
+            }
+            
+            // Insert transaction item
+            $stmt = $conn->prepare("INSERT INTO transaction_items (transaction_id, product_id, quantity, unit_price, line_total) 
+                                  VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("iiddd", 
+                $transactionId, 
+                $productId,
+                $quantity,
+                $unitPrice,
+                $lineTotal
+            );
+            $stmt->execute();
+            
+            // Update product stock directly without creating a stock adjustment record
+            $newStock = $currentStock - $quantity;
+            $stmt = $conn->prepare("UPDATE products SET current_stock = ? WHERE product_id = ?");
+            $stmt->bind_param("ii", $newStock, $productId);
+            $stmt->execute();
+            
+            // Removed the stock_adjustments insert code as requested
         }
-
-    } elseif ($action === 'categories') {
-        try {
-            $sql = "SELECT DISTINCT c.name 
-                    FROM categories c 
-                    JOIN products p ON c.category_id = p.category_id 
-                    WHERE p.is_active = 1 
-                    ORDER BY c.name ASC";
-            $result = $conn->query($sql);
-            if (!$result) {
-                 throw new Exception("Query failed (categories): " . $conn->error);
-            }
-            $categories = [];
-            while ($row = $result->fetch_assoc()) {
-                $categories[] = $row['name'];
-            }
-            echo json_encode($categories);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(["error" => "Failed to fetch categories: " . $e->getMessage()]);
-            error_log("GET categories (POS) error: " . $e->getMessage());
-        }
-    } else {
-        http_response_code(400);
-        echo json_encode(["error" => "Invalid GET action for POS API."]);
+        
+        // Commit transaction
+        $conn->commit();
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Transaction completed successfully',
+            'transactionId' => $data['transactionId'],
+            'dbTransactionId' => $transactionId
+        ]);
+        
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
     }
-
-} elseif ($method === 'POST') {
-    if ($action === 'checkout') {
-        $input = json_decode(file_get_contents('php://input'), true);
-
-        if (!$input) {
-            http_response_code(400);
-            echo json_encode(["error" => "Invalid JSON input."]);
-            exit;
-        }
-
-        // --- Sanitize and Validate Input ---
-        $transaction_ref = isset($input['transaction_ref']) ? sanitize_input($conn, $input['transaction_ref']) : null;
-        $cart = isset($input['cart']) && is_array($input['cart']) ? $input['cart'] : [];
-        $discount_percentage = isset($input['discount_percentage']) ? floatval($input['discount_percentage']) : 0;
-        $subtotal = isset($input['subtotal']) ? floatval($input['subtotal']) : 0;
-        $total_amount = isset($input['total_amount']) ? floatval($input['total_amount']) : 0;
-        $payment_amount = isset($input['payment_amount']) ? floatval($input['payment_amount']) : 0;
-        $change_amount = isset($input['change_amount']) ? floatval($input['change_amount']) : 0;
-        $notes = isset($input['notes']) ? sanitize_input($conn, $input['notes']) : null;
-
-
-        if (empty($transaction_ref) || empty($cart) || $payment_amount < $total_amount) {
-            http_response_code(400);
-            echo json_encode(["error" => "Missing or invalid transaction data. Ensure cart is not empty and payment is sufficient."]);
-            exit;
-        }
-        if ($discount_percentage < 0 || $discount_percentage > 100) {
-            http_response_code(400);
-            echo json_encode(["error" => "Discount percentage must be between 0 and 100."]);
-            exit;
-        }
-
-
-        $conn->begin_transaction();
-
-        try {
-            // 1. Validate stock for all cart items
-            foreach ($cart as $item) {
-                $product_id = intval($item['id']);
-                $quantity_to_sell = intval($item['quantity']);
-
-                if ($quantity_to_sell <= 0) {
-                     throw new Exception("Invalid quantity for product ID " . $product_id . ".");
-                }
-
-                $stmt_stock_check = $conn->prepare("SELECT current_stock, name FROM products WHERE product_id = ? AND is_active = 1");
-                if (!$stmt_stock_check) throw new Exception("Stock check prepare failed: " . $conn->error);
-                $stmt_stock_check->bind_param("i", $product_id);
-                $stmt_stock_check->execute();
-                $product_data = $stmt_stock_check->get_result()->fetch_assoc();
-                $stmt_stock_check->close();
-
-                if (!$product_data) {
-                    throw new Exception("Product ID " . $product_id . " not found or is inactive.");
-                }
-                if ($product_data['current_stock'] < $quantity_to_sell) {
-                    throw new Exception("Insufficient stock for product: " . $product_data['name'] . ". Available: " . $product_data['current_stock'] . ", Requested: " . $quantity_to_sell);
-                }
-            }
-
-            // 2. Insert into transactions table
-            $stmt_transaction = $conn->prepare("INSERT INTO transactions (transaction_ref, discount_percentage, subtotal, total_amount, payment_amount, change_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            if (!$stmt_transaction) throw new Exception("Transaction prepare failed: " . $conn->error);
-            $stmt_transaction->bind_param("sddddds", $transaction_ref, $discount_percentage, $subtotal, $total_amount, $payment_amount, $change_amount, $notes);
-            if (!$stmt_transaction->execute()) {
-                 // Check for duplicate transaction_ref
-                if ($conn->errno == 1062) { // MySQL error code for duplicate entry
-                    throw new Exception("Transaction reference " . $transaction_ref . " already exists. Please generate a new one.");
-                }
-                throw new Exception("Failed to create transaction record: " . $stmt_transaction->error);
-            }
-            $transaction_id = $stmt_transaction->insert_id;
-            $stmt_transaction->close();
-
-            // 3. Process each cart item
-            foreach ($cart as $item) {
-                $product_id = intval($item['id']);
-                $quantity_sold = intval($item['quantity']);
-                $unit_price = floatval($item['price']); // Price per unit at the time of sale
-                $line_total = $unit_price * $quantity_sold; // Recalculate or trust frontend? Best to recalculate or ensure consistency
-
-                // 3a. Insert into transaction_items
-                $stmt_item = $conn->prepare("INSERT INTO transaction_items (transaction_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
-                if (!$stmt_item) throw new Exception("Transaction item prepare failed: " . $conn->error);
-                $stmt_item->bind_param("iiidd", $transaction_id, $product_id, $quantity_sold, $unit_price, $line_total);
-                if (!$stmt_item->execute()) {
-                    throw new Exception("Failed to add item (ID: " . $product_id . ") to transaction: " . $stmt_item->error);
-                }
-                $stmt_item->close();
-
-                // 3b. Update product stock
-                $stmt_update_stock = $conn->prepare("UPDATE products SET current_stock = current_stock - ? WHERE product_id = ?");
-                if (!$stmt_update_stock) throw new Exception("Update stock prepare failed: " . $conn->error);
-                $stmt_update_stock->bind_param("ii", $quantity_sold, $product_id);
-                if (!$stmt_update_stock->execute()) {
-                    throw new Exception("Failed to update stock for product ID " . $product_id . ": " . $stmt_update_stock->error);
-                }
-                $stmt_update_stock->close();
-
-                // 3c. Insert into stock_adjustments
-                $stock_adjustment_quantity = -$quantity_sold;
-                $reason_sale = 'sale';
-                $stmt_stock_adj = $conn->prepare("INSERT INTO stock_adjustments (product_id, quantity, reason, reference_id, notes) VALUES (?, ?, ?, ?, ?)");
-                if (!$stmt_stock_adj) throw new Exception("Stock adjustment prepare failed: " . $conn->error);
-                $adjustment_notes = "Sale via transaction: " . $transaction_ref;
-                $stmt_stock_adj->bind_param("iisds", $product_id, $stock_adjustment_quantity, $reason_sale, $transaction_id, $adjustment_notes);
-                if (!$stmt_stock_adj->execute()) {
-                    throw new Exception("Failed to record stock adjustment for product ID " . $product_id . ": " . $stmt_stock_adj->error);
-                }
-                $stmt_stock_adj->close();
-            }
-
-            $conn->commit();
-            http_response_code(201); // Created
-            echo json_encode([
-                "success" => true,
-                "message" => "Transaction completed successfully.",
-                "transaction_id" => $transaction_id,
-                "transaction_ref" => $transaction_ref
-            ]);
-
-        } catch (Exception $e) {
-            $conn->rollback();
-            http_response_code(400); // Or 500 if it's an internal server error
-            echo json_encode(["error" => $e->getMessage()]);
-            error_log("POST checkout error: " . $e->getMessage() . " Input: " . json_encode($input));
-        }
-    } else {
-        http_response_code(400);
-        echo json_encode(["error" => "Invalid POST action for POS API."]);
-    }
-} else {
-    http_response_code(405); // Method Not Allowed
-    echo json_encode(["error" => "Method not allowed for POS API."]);
 }
 
-if (isset($conn)) {
-    $conn->close();
+// Function to get list of transactions
+function getTransactions($conn, $startDate = null, $endDate = null) {
+    try {
+        $sql = "SELECT transaction_id, transaction_ref, discount_percentage, subtotal, 
+                total_amount, payment_amount, change_amount, transaction_date, notes
+                FROM transactions";
+        
+        // Add date filters if provided
+        $params = [];
+        $types = "";
+        $whereAdded = false;
+        
+        if ($startDate) {
+            $sql .= " WHERE transaction_date >= ?";
+            $params[] = $startDate . " 00:00:00";
+            $types .= "s";
+            $whereAdded = true;
+        }
+        
+        if ($endDate) {
+            $sql .= $whereAdded ? " AND transaction_date <= ?" : " WHERE transaction_date <= ?";
+            $params[] = $endDate . " 23:59:59";
+            $types .= "s";
+        }
+        
+        $sql .= " ORDER BY transaction_date DESC";
+        
+        $stmt = $conn->prepare($sql);
+        
+        // Bind parameters if any
+        if (count($params) > 0) {
+            $stmt->bind_param($types, ...$params);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $transactions = [];
+        while ($row = $result->fetch_assoc()) {
+            $transactions[] = [
+                'id' => (int)$row['transaction_id'],
+                'ref' => $row['transaction_ref'],
+                'discount' => (float)$row['discount_percentage'],
+                'subtotal' => (float)$row['subtotal'],
+                'total' => (float)$row['total_amount'],
+                'received' => (float)$row['payment_amount'],
+                'change' => (float)$row['change_amount'],
+                'date' => $row['transaction_date'],
+                'notes' => $row['notes']
+            ];
+        }
+        
+        echo json_encode(['transactions' => $transactions]);
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// Function to get details of a specific transaction
+function getTransactionDetails($conn, $transactionId) {
+    try {
+        // Get transaction header
+        $stmt = $conn->prepare("SELECT * FROM transactions WHERE transaction_id = ? OR transaction_ref = ?");
+        $stmt->bind_param("is", $transactionId, $transactionId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            echo json_encode(['error' => 'Transaction not found']);
+            return;
+        }
+        
+        $transaction = $result->fetch_assoc();
+        
+        // Get transaction items
+        $stmt = $conn->prepare("SELECT ti.*, p.name, p.unit 
+                              FROM transaction_items ti
+                              JOIN products p ON ti.product_id = p.product_id
+                              WHERE ti.transaction_id = ?");
+        $dbTransactionId = $transaction['transaction_id'];
+        $stmt->bind_param("i", $dbTransactionId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $items = [];
+        while ($row = $result->fetch_assoc()) {
+            $items[] = [
+                'id' => (int)$row['product_id'],
+                'name' => $row['name'],
+                'quantity' => (int)$row['quantity'],
+                'unit' => $row['unit'],
+                'price' => (float)$row['unit_price'],
+                'total' => (float)$row['line_total']
+            ];
+        }
+        
+        // Format response
+        $response = [
+            'id' => (int)$transaction['transaction_id'],
+            'ref' => $transaction['transaction_ref'],
+            'date' => $transaction['transaction_date'],
+            'discount' => (float)$transaction['discount_percentage'],
+            'subtotal' => (float)$transaction['subtotal'],
+            'total' => (float)$transaction['total_amount'],
+            'payment' => (float)$transaction['payment_amount'],
+            'change' => (float)$transaction['change_amount'],
+            'notes' => $transaction['notes'],
+            'items' => $items
+        ];
+        
+        echo json_encode(['transaction' => $response]);
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
 }
 ?>
