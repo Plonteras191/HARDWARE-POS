@@ -1,20 +1,18 @@
 CREATE DATABASE IF NOT EXISTS hardware_pos;
 USE hardware_pos;
 
--- Categories table
+-- Categories table (simplified with just id and name)
 CREATE TABLE categories (
     category_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    name VARCHAR(50) NOT NULL UNIQUE
 );
 
--- Products table
+-- Products table (with supplier name field)
 CREATE TABLE products (
     product_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     category_id INT NOT NULL,
+    supplier_name VARCHAR(100) NOT NULL, -- Just store supplier name as a string
     price DECIMAL(10,2) NOT NULL,
     unit VARCHAR(20) NOT NULL,
     min_stock INT NOT NULL DEFAULT 0,
@@ -22,7 +20,8 @@ CREATE TABLE products (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES categories(category_id)
+    FOREIGN KEY (category_id) REFERENCES categories(category_id),
+    UNIQUE KEY unique_product_supplier (name, supplier_name) -- Unique constraint on name + supplier_name
 );
 
 -- Stock adjustments table for inventory tracking

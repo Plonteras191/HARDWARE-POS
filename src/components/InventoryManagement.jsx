@@ -1,67 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
-    TextField,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    IconButton,
-    Typography,
-    Box,
-    Tabs,
-    Tab,
-    Snackbar,
-    Alert,
-    TablePagination,
-    InputAdornment,
-    Menu,
-    MenuItem,
-    CircularProgress // Added for loading state
-} from '@mui/material';
-import {
-    Add as AddIcon,
-    Edit as EditIcon,
-    Remove as RemoveIcon,
-    Search as SearchIcon,
-    MoreVert as MoreVertIcon,
-    AddCircle as AddCircleIcon,
-    RemoveCircle as RemoveCircleIcon,
-    Restore as RestoreIcon
-} from '@mui/icons-material';
-import '../styles/inventory.css'; // Ensure this path is correct
-import InventoryAPI from '../services/api'; // Import the API service
+import React, { useState, useEffect, useCallback } from 'react';
+import '../styles/inventory.css';
+
+const API_BASE_URL = 'http://localhost/HARD-POS/backend/api';
 
 const InventoryManagement = () => {
-    // State for inventory items
     const [inventory, setInventory] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [totalItems, setTotalItems] = useState(0);
-
-    // UI state
     const [searchTerm, setSearchTerm] = useState('');
     const [openDialog, setOpenDialog] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [formData, setFormData] = useState({
         name: '',
         category: '',
+        supplier_name: '',
         quantity: '',
         unit: '',
         price: '',
         minStock: ''
     });
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTab] = useState(0); // 0 for Active, 1 for Removed
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
-
+    const [loading, setLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState({
         open: false,
         title: '',
@@ -72,53 +32,87 @@ const InventoryManagement = () => {
         open: false,
         item: null,
         amount: '',
-        adjustmentType: null
+        adjustmentType: null,
+        notes: ''
     });
     const [actionMenu, setActionMenu] = useState({
-        anchorEl: null,
+        visible: false,
+        top: 0,
+        left: 0,
         itemId: null
     });
 
-    // Fetch inventory data
-    const fetchInventory = async () => {
+    const fetchInventory = useCallback(async () => {
+        setLoading(true);
         try {
-            setIsLoading(true);
-            const status = activeTab === 0 ? 'active' : 'removed';
-            const response = await InventoryAPI.getInventory(status, searchTerm, page, rowsPerPage);
-            setInventory(response.products);
-            setTotalItems(response.total);
+            const isActive = activeTab === 0 ? 'true' : 'false';
+            let url = `${API_BASE_URL}/inventory_management.php?active=${isActive}`;
+            if (searchTerm) {
+                url += `&search=${encodeURIComponent(searchTerm)}`;
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Failed to fetch data' }));
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.products) {
+                // Ensure correct filtering based on isRemoved
+                const filteredProducts = data.products.filter(item =>
+                    activeTab === 0 ? !item.isRemoved : item.isRemoved
+                );
+                setInventory(filteredProducts);
+                // Debug log to verify isRemoved values
+                console.log('Fetched inventory:', filteredProducts.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    isRemoved: item.isRemoved,
+                    tab: activeTab === 0 ? 'Active' : 'Removed'
+                })));
+            } else if (data.error) {
+                throw new Error(data.error);
+            } else {
+                setInventory([]);
+            }
         } catch (error) {
-            console.error('Error fetching inventory:', error);
+            console.error("Error fetching inventory:", error);
             setNotification({
                 open: true,
                 message: `Error fetching inventory: ${error.message}`,
                 severity: 'error'
             });
+            setInventory([]);
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
-    };
+    }, [searchTerm, activeTab]);
 
-    // Initial data load and refresh on filters change
     useEffect(() => {
         fetchInventory();
-    }, [activeTab, page, rowsPerPage, searchTerm]);
+    }, [fetchInventory]);
 
-    // Check for low stock items
     useEffect(() => {
         const lowStockItems = inventory.filter(item => !item.isRemoved && item.quantity <= item.minStock);
-        if (lowStockItems.length > 0) {
+        if (lowStockItems.length > 0 && activeTab === 0) {
             setNotification({
                 open: true,
                 message: `Low stock alert: ${lowStockItems.map(item => item.name).join(', ')} ${lowStockItems.length === 1 ? 'is' : 'are'} running low.`,
-                severity: 'warning'
+                severity: 'warning',
+                autoHideDuration: 6000
             });
         }
-    }, [inventory]);
+    }, [inventory, activeTab]);
 
-    const handleTabChange = (event, newValue) => {
+    useEffect(() => {
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, []);
+
+    const handleTabChange = (newValue) => {
         setActiveTab(newValue);
-        setPage(0); // Reset page when tab changes
+        setPage(0);
     };
 
     const handleOpenDialog = (item = null) => {
@@ -127,6 +121,7 @@ const InventoryManagement = () => {
             setFormData({
                 name: item.name,
                 category: item.category,
+                supplier_name: item.supplier_name || '',
                 quantity: String(item.quantity),
                 unit: item.unit,
                 price: String(item.price),
@@ -137,6 +132,7 @@ const InventoryManagement = () => {
             setFormData({
                 name: '',
                 category: '',
+                supplier_name: '',
                 quantity: '',
                 unit: '',
                 price: '',
@@ -159,18 +155,27 @@ const InventoryManagement = () => {
         }));
     };
 
-    const handleActionMenuOpen = (event, itemId) => {
+    const handleActionMenuOpen = (e, itemId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
         setActionMenu({
-            anchorEl: event.currentTarget,
+            visible: true,
+            top: rect.bottom + window.scrollY,
+            left: rect.left + window.scrollX,
             itemId
         });
+        document.addEventListener('click', handleClickOutside);
     };
 
-    const handleActionMenuClose = () => {
-        setActionMenu({
-            anchorEl: null,
-            itemId: null
-        });
+    const handleClickOutside = (e) => {
+        if (!e.target.closest('.action-menu') && !e.target.closest('.action-button')) {
+            setActionMenu(prev => ({
+                ...prev,
+                visible: false
+            }));
+            document.removeEventListener('click', handleClickOutside);
+        }
     };
 
     const openConfirmDialog = (title, message, action) => {
@@ -180,39 +185,36 @@ const InventoryManagement = () => {
             message,
             action
         });
-        handleActionMenuClose();
+        setActionMenu(prev => ({ ...prev, visible: false }));
     };
 
     const closeConfirmDialog = () => {
-        setConfirmDialog({
-            open: false,
-            title: '',
-            message: '',
-            action: null
-        });
+        setConfirmDialog(prev => ({ ...prev, open: false }));
     };
 
     const openStockAdjustDialog = (item, type) => {
+        const currentItem = inventory.find(invItem => invItem.id === item.id);
+        if (!currentItem) {
+            setNotification({ open: true, message: 'Item not found for stock adjustment.', severity: 'error' });
+            setActionMenu(prev => ({ ...prev, visible: false }));
+            return;
+        }
         setStockAdjustDialog({
             open: true,
-            item,
+            item: currentItem,
             amount: '',
+            notes: '',
             adjustmentType: type
         });
-        handleActionMenuClose();
+        setActionMenu(prev => ({ ...prev, visible: false }));
     };
 
     const closeStockAdjustDialog = () => {
-        setStockAdjustDialog({
-            open: false,
-            item: null,
-            amount: '',
-            adjustmentType: null
-        });
+        setStockAdjustDialog(prev => ({ ...prev, open: false, item: null, amount: '', notes: '' }));
     };
 
     const handleStockAdjustment = async () => {
-        const { item, amount, adjustmentType } = stockAdjustDialog;
+        const { item, amount, adjustmentType, notes } = stockAdjustDialog;
 
         if (!item || !adjustmentType || !amount || Number(amount) <= 0) {
             setNotification({
@@ -223,98 +225,102 @@ const InventoryManagement = () => {
             return;
         }
 
+        const payload = {
+            amount: Number(amount),
+            adjustmentType,
+            notes: notes || (adjustmentType === 'add' ? 'Stock added' : 'Stock removed')
+        };
+
+        setLoading(true);
         try {
-            const response = await InventoryAPI.adjustStock({
-                id: item.id,
-                amount: Number(amount),
-                adjustmentType
+            const response = await fetch(`${API_BASE_URL}/inventory_management.php?action=adjust-stock&id=${item.id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
             });
 
-            // Update the local state to reflect the change
-            setInventory(prevInventory => 
-                prevInventory.map(invItem =>
-                    invItem.id === item.id 
-                        ? { ...invItem, quantity: response.new_quantity } 
-                        : invItem
-                )
-            );
+            const result = await response.json();
 
-            closeStockAdjustDialog();
+            if (!response.ok || result.error) {
+                throw new Error(result.error || `HTTP error! status: ${response.status}`);
+            }
+
             setNotification({
                 open: true,
-                message: `Stock for ${item.name} ${adjustmentType === 'add' ? 'increased' : 'decreased'} by ${amount}. New quantity: ${response.new_quantity}.`,
+                message: result.message || 'Stock adjusted successfully!',
                 severity: 'success'
             });
+
+            if (result.product) {
+                setInventory(prevInventory =>
+                    prevInventory.map(invItem =>
+                        invItem.id === result.product.id ? { ...invItem, quantity: result.product.quantity } : invItem
+                    )
+                );
+            } else {
+                fetchInventory();
+            }
+            closeStockAdjustDialog();
         } catch (error) {
+            console.error("Error adjusting stock:", error);
             setNotification({
                 open: true,
-                message: error.message,
+                message: `Error adjusting stock: ${error.message}`,
                 severity: 'error'
             });
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleRemove = async (id) => {
-        const itemToRemove = inventory.find(item => item.id === id);
-        if (!itemToRemove) return;
-        
-        openConfirmDialog(
-            'Remove Item',
-            `Are you sure you want to remove "${itemToRemove.name}"? This action will move the item to the 'Removed Items' tab.`,
-            async () => {
-                try {
-                    await InventoryAPI.changeItemStatus(id, 'remove');
-                    
-                    // Update local state
-                    setInventory(prev => prev.filter(item => item.id !== id));
-                    
-                    setNotification({
-                        open: true,
-                        message: `"${itemToRemove.name}" has been moved to Removed Items.`,
-                        severity: 'info'
-                    });
-                    
-                    // Refresh data
-                    fetchInventory();
-                } catch (error) {
-                    setNotification({
-                        open: true,
-                        message: error.message,
-                        severity: 'error'
-                    });
-                }
-            }
-        );
-    };
+    const toggleProductStatus = async (id, currentIsRemoved) => {
+        const item = inventory.find(item => item.id === id);
+        if (!item) return;
 
-    const handleRestore = async (id) => {
-        const itemToRestore = inventory.find(item => item.id === id);
-        if (!itemToRestore) return;
-        
+        const actionText = currentIsRemoved ? "restore" : "remove";
+        const newStatusText = currentIsRemoved ? "Active Items" : "Removed Items";
+
         openConfirmDialog(
-            'Restore Item',
-            `Are you sure you want to restore "${itemToRestore.name}"? This action will move the item to the 'Active Items' tab.`,
+            `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} Item`,
+            `Are you sure you want to ${actionText} "${item.name}"? This will move the item to '${newStatusText}'.`,
             async () => {
+                setLoading(true);
                 try {
-                    await InventoryAPI.changeItemStatus(id, 'restore');
-                    
-                    // Update local state
-                    setInventory(prev => prev.filter(item => item.id !== id));
-                    
+                    const response = await fetch(`${API_BASE_URL}/inventory_management.php?action=toggle-status&id=${id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    const result = await response.json();
+
+                    if (!response.ok || result.error) {
+                        throw new Error(result.error || `HTTP error! status: ${response.status}`);
+                    }
+
                     setNotification({
                         open: true,
-                        message: `"${itemToRestore.name}" has been restored to Active Items.`,
+                        message: result.message || `"${item.name}" status updated successfully.`,
                         severity: 'success'
                     });
-                    
-                    // Refresh data
+
+                    // Optimistically remove from current tab
+                    setInventory(prevInventory =>
+                        prevInventory.filter(invItem => invItem.id !== id)
+                    );
                     fetchInventory();
                 } catch (error) {
+                    console.error(`Error toggling status for ${item.name}:`, error);
                     setNotification({
                         open: true,
-                        message: error.message,
+                        message: `Error updating status: ${error.message}`,
                         severity: 'error'
                     });
+                } finally {
+                    setLoading(false);
+                    closeConfirmDialog();
                 }
             }
         );
@@ -322,61 +328,90 @@ const InventoryManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const numericFormData = {
-            ...formData,
-            quantity: parseInt(formData.quantity, 10) || 0,
-            price: parseFloat(formData.price) || 0,
-            minStock: parseInt(formData.minStock, 10) || 0,
+
+        if (!formData.name || !formData.category || !formData.quantity || 
+            !formData.unit || !formData.price || !formData.minStock ||
+            !formData.supplier_name) {
+            setNotification({ open: true, message: 'All fields are required.', severity: 'error' });
+            return;
+        }
+
+        const productData = {
+            name: formData.name,
+            category: formData.category,
+            supplier_name: formData.supplier_name,
+            quantity: parseInt(formData.quantity, 10),
+            unit: formData.unit,
+            price: parseFloat(formData.price),
+            minStock: parseInt(formData.minStock, 10)
+        };
+
+        if (isNaN(productData.quantity) || isNaN(productData.price) || isNaN(productData.minStock)) {
+            setNotification({ open: true, message: 'Quantity, Price, and Min Stock must be valid numbers.', severity: 'error' });
+            return;
+        }
+        if (productData.quantity < 0 || productData.price < 0 || productData.minStock < 0) {
+            setNotification({ open: true, message: 'Quantity, Price, and Min Stock cannot be negative.', severity: 'error' });
+            return;
+        }
+
+        const confirmAction = async () => {
+            setLoading(true);
+            let url = `${API_BASE_URL}/inventory_management.php`;
+            let method = 'POST';
+
+            if (editingItem) {
+                url += `?id=${editingItem.id}`;
+                method = 'PUT';
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(productData),
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || result.error) {
+                    throw new Error(result.error || `HTTP error! status: ${response.status}`);
+                }
+
+                setNotification({
+                    open: true,
+                    message: editingItem ? `"${result.product.name}" updated successfully!` : `"${result.product.name}" added successfully!`,
+                    severity: 'success'
+                });
+                handleCloseDialog();
+                fetchInventory();
+            } catch (error) {
+                console.error("Error submitting product:", error);
+                setNotification({
+                    open: true,
+                    message: `Error: ${error.message}`,
+                    severity: 'error'
+                });
+            } finally {
+                setLoading(false);
+                closeConfirmDialog();
+            }
         };
 
         if (editingItem) {
             openConfirmDialog(
                 'Update Item',
-                `Are you sure you want to update "${numericFormData.name}"?`,
-                async () => {
-                    try {
-                        await InventoryAPI.updateItem(editingItem.id, numericFormData);
-                        
-                        handleCloseDialog();
-                        setNotification({
-                            open: true,
-                            message: `"${numericFormData.name}" has been updated.`,
-                            severity: 'success'
-                        });
-                        
-                        fetchInventory();
-                    } catch (error) {
-                        setNotification({
-                            open: true,
-                            message: error.message,
-                            severity: 'error'
-                        });
-                    }
-                }
+                `Are you sure you want to update "${formData.name}"?`,
+                confirmAction
             );
         } else {
-            try {
-                await InventoryAPI.addItem(numericFormData);
-                
-                handleCloseDialog();
-                setNotification({
-                    open: true,
-                    message: `New item "${numericFormData.name}" has been added.`,
-                    severity: 'success'
-                });
-                
-                fetchInventory();
-            } catch (error) {
-                setNotification({
-                    open: true,
-                    message: error.message,
-                    severity: 'error'
-                });
-            }
+            confirmAction();
         }
     };
 
-    const handleChangePage = (event, newPage) => {
+    const handleChangePage = (newPage) => {
         setPage(newPage);
     };
 
@@ -385,273 +420,392 @@ const InventoryManagement = () => {
         setPage(0);
     };
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-        setPage(0); // Reset to first page on search
-    };
-
-    // Delayed search to prevent too many API calls
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            fetchInventory();
-        }, 500);
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
+    const startIndex = page * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    const paginatedInventory = inventory.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(inventory.length / rowsPerPage);
 
     return (
         <div className="inventory-container">
             <div className="inventory-header">
-                <Typography variant="h4" gutterBottom>Inventory Management</Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleOpenDialog()}
-                    className="add-item-button"
-                >
-                    Add New Item
-                </Button>
+                <h1>Inventory Management</h1>
+                <button className="add-item-button" onClick={() => handleOpenDialog()}>
+                    <span className="icon">+</span> Add New Item
+                </button>
             </div>
 
-            <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Search by name or category..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="search-bar"
-                InputProps={{
-                    startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} />
-                }}
-                sx={{ mb: 2 }}
-            />
-
-            <Tabs value={activeTab} onChange={handleTabChange} indicatorColor="primary" textColor="primary" sx={{ mb: 2 }}>
-                <Tab label="Active Items" />
-                <Tab label="Removed Items" />
-            </Tabs>
-
-            <TableContainer component={Paper} className="inventory-table">
-                <Table stickyHeader aria-label="inventory table">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Name</TableCell>
-                            <TableCell>Category</TableCell>
-                            <TableCell align="right">Quantity</TableCell>
-                            <TableCell>Unit</TableCell>
-                            <TableCell align="right">Price</TableCell>
-                            <TableCell align="right">Min Stock</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell align="center">Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={8} align="center">
-                                    <CircularProgress />
-                                </TableCell>
-                            </TableRow>
-                        ) : inventory.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={8} align="center">
-                                    <Typography sx={{ py: 3 }}>
-                                        {activeTab === 0 ? "No active items found." : "No removed items found."}
-                                    </Typography>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            inventory.map((item) => (
-                                <TableRow key={item.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                    <TableCell component="th" scope="row">{item.name}</TableCell>
-                                    <TableCell>{item.category}</TableCell>
-                                    <TableCell align="right">{item.quantity}</TableCell>
-                                    <TableCell>{item.unit}</TableCell>
-                                    <TableCell align="right">₱{item.price.toFixed(2)}</TableCell>
-                                    <TableCell align="right">{item.minStock}</TableCell>
-                                    <TableCell>
-                                        {!item.isRemoved && (item.quantity <= item.minStock) ? (
-                                            <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
-                                                Low Stock
-                                            </Typography>
-                                        ) : !item.isRemoved ? (
-                                            <Typography variant="body2" sx={{ color: 'success.main' }}>
-                                                In Stock
-                                            </Typography>
-                                        ) : (
-                                            <Typography variant="body2" color="textSecondary">
-                                                Removed
-                                            </Typography>
-                                        )}
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        <IconButton
-                                            aria-label="actions"
-                                            onClick={(e) => handleActionMenuOpen(e, item.id)}
-                                        >
-                                            <MoreVertIcon />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-                <TablePagination
-                    rowsPerPageOptions={[5, 10, 25, 50]}
-                    component="div"
-                    count={totalItems}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
+            <div className="search-bar-container">
+                <input
+                    type="text"
+                    className="search-bar"
+                    placeholder="Search by name, category, or supplier..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setPage(0);
+                    }}
                 />
-            </TableContainer>
+                <span className="search-icon">🔍</span>
+            </div>
 
-            {/* Action Menu */}
-            <Menu
-                id="actions-menu"
-                anchorEl={actionMenu.anchorEl}
-                open={Boolean(actionMenu.anchorEl)}
-                onClose={handleActionMenuClose}
-                MenuListProps={{
-                    'aria-labelledby': 'actions-button',
-                }}
-            >
-                <MenuItem onClick={() => {
-                    const itemToEdit = inventory.find(item => item.id === actionMenu.itemId);
-                    handleOpenDialog(itemToEdit);
-                    handleActionMenuClose();
-                }}>
-                    <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
-                </MenuItem>
-
-                {activeTab === 0 && ( // Stock adjustments only for active items
-                    <>
-                        <MenuItem onClick={() => {
-                            const itemToAdjust = inventory.find(item => item.id === actionMenu.itemId);
-                            openStockAdjustDialog(itemToAdjust, 'add');
-                        }}>
-                            <AddCircleIcon fontSize="small" sx={{ mr: 1, color: 'success.main' }} /> Add Stock
-                        </MenuItem>
-                        <MenuItem onClick={() => {
-                            const itemToAdjust = inventory.find(item => item.id === actionMenu.itemId);
-                            openStockAdjustDialog(itemToAdjust, 'remove');
-                        }}>
-                            <RemoveCircleIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} /> Remove Stock
-                        </MenuItem>
-                    </>
-                )}
-
-                {activeTab === 0 ? (
-                    <MenuItem onClick={() => handleRemove(actionMenu.itemId)}>
-                        <RemoveIcon fontSize="small" sx={{ mr: 1 }} /> Remove Item
-                    </MenuItem>
-                ) : (
-                    <MenuItem onClick={() => handleRestore(actionMenu.itemId)}>
-                        <RestoreIcon fontSize="small" sx={{ mr: 1 }} /> Restore Item
-                    </MenuItem>
-                )}
-            </Menu>
-
-            {/* Add/Edit Item Dialog */}
-            <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth maxWidth="sm">
-                <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
-                <form onSubmit={handleSubmit}>
-                    <DialogContent>
-                        <TextField name="name" label="Item Name" value={formData.name} onChange={handleInputChange} fullWidth margin="dense" required />
-                        <TextField name="category" label="Category" value={formData.category} onChange={handleInputChange} fullWidth margin="dense" required />
-                        <TextField name="quantity" label="Quantity" type="number" value={formData.quantity} onChange={handleInputChange} fullWidth margin="dense" required InputProps={{ inputProps: { min: 0 } }} />
-                        <TextField name="unit" label="Unit (e.g., pcs, kg, box)" value={formData.unit} onChange={handleInputChange} fullWidth margin="dense" required />
-                        <TextField name="price" label="Price (₱)" type="number" value={formData.price} onChange={handleInputChange} fullWidth margin="dense" required InputProps={{ inputProps: { min: 0, step: "0.01" } }} />
-                        <TextField name="minStock" label="Minimum Stock Level" type="number" value={formData.minStock} onChange={handleInputChange} fullWidth margin="dense" required InputProps={{ inputProps: { min: 0 } }} />
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={handleCloseDialog}>Cancel</Button>
-                        <Button type="submit" variant="contained">{editingItem ? 'Save Changes' : 'Add Item'}</Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            {/* Stock Adjustment Dialog */}
-            <Dialog open={stockAdjustDialog.open} onClose={closeStockAdjustDialog} fullWidth maxWidth="xs">
-                <DialogTitle>
-                    {stockAdjustDialog.adjustmentType === 'add' ? 'Add Stock to ' : 'Remove Stock from '}
-                    <strong>{stockAdjustDialog.item?.name}</strong>
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ pt: 1 }}>
-                        <Typography variant="body1" gutterBottom>
-                            Current Stock: {stockAdjustDialog.item?.quantity} {stockAdjustDialog.item?.unit}
-                        </Typography>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            fullWidth
-                            label="Amount to Adjust"
-                            type="number"
-                            value={stockAdjustDialog.amount}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setStockAdjustDialog(prev => ({ ...prev, amount: val }));
-                            }}
-                            InputProps={{
-                                inputProps: { min: 1 }
-                            }}
-                            helperText="Enter a positive number for adjustment."
-                            sx={{ mt: 1 }}
-                        />
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={closeStockAdjustDialog}>Cancel</Button>
-                    <Button
-                        onClick={handleStockAdjustment}
-                        variant="contained"
-                        disabled={!stockAdjustDialog.amount || Number(stockAdjustDialog.amount) <= 0}
-                        color={stockAdjustDialog.adjustmentType === 'add' ? 'success' : 'error'}
-                    >
-                        {stockAdjustDialog.adjustmentType === 'add' ? 'Add to Stock' : 'Remove from Stock'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Confirmation Dialog */}
-            <Dialog open={confirmDialog.open} onClose={closeConfirmDialog} fullWidth maxWidth="xs">
-                <DialogTitle>{confirmDialog.title}</DialogTitle>
-                <DialogContent>
-                    <Typography>{confirmDialog.message}</Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={closeConfirmDialog}>Cancel</Button>
-                    <Button
-                        onClick={() => {
-                            if (confirmDialog.action) confirmDialog.action();
-                            closeConfirmDialog();
-                        }}
-                        variant="contained"
-                        color="primary"
-                    >
-                        Confirm
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Snackbar
-                open={notification.open}
-                autoHideDuration={6000}
-                onClose={() => setNotification({ ...notification, open: false })}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            >
-                <Alert
-                    onClose={() => setNotification({ ...notification, open: false })}
-                    severity={notification.severity}
-                    variant="filled"
-                    sx={{ width: '100%' }}
+            <div className="tabs">
+                <button 
+                    className={`tab ${activeTab === 0 ? 'active' : ''}`} 
+                    onClick={() => handleTabChange(0)}
                 >
-                    {notification.message}
-                </Alert>
-            </Snackbar>
+                    Active Items
+                </button>
+                <button 
+                    className={`tab ${activeTab === 1 ? 'active' : ''}`}
+                    onClick={() => handleTabChange(1)}
+                >
+                    Removed Items
+                </button>
+            </div>
+
+            {loading && <div className="loading-spinner">Loading...</div>}
+
+            {!loading && (
+                <div className="table-container">
+                    <table className="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Supplier</th>
+                                <th className="right-align">Quantity</th>
+                                <th>Unit</th>
+                                <th className="right-align">Price</th>
+                                <th className="right-align">Min Stock</th>
+                                <th>Status</th>
+                                <th className="center-align">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paginatedInventory.length === 0 ? (
+                                <tr>
+                                    <td colSpan={9} className="empty-message">
+                                        {activeTab === 0 ? "No active items found." : "No removed items found."}
+                                        {searchTerm && " (Try clearing the search)"}
+                                    </td>
+                                </tr>
+                            ) : (
+                                paginatedInventory.map((item) => (
+                                    <tr key={item.id} className={
+                                        (!item.isRemoved && item.quantity <= item.minStock && item.quantity > 0) ? 'low-stock' : 
+                                        (item.quantity === 0 && !item.isRemoved) ? 'out-of-stock' : ''
+                                    }>
+                                        <td>{item.name}</td>
+                                        <td>{item.category}</td>
+                                        <td>{item.supplier_name}</td>
+                                        <td className="right-align">{item.quantity}</td>
+                                        <td>{item.unit}</td>
+                                        <td className="right-align">₱{typeof item.price === 'number' ? item.price.toFixed(2) : 'N/A'}</td>
+                                        <td className="right-align">{item.minStock}</td>
+                                        <td>
+                                            {!item.isRemoved ? (
+                                                item.quantity === 0 ? (
+                                                    <span className="status out-of-stock">Out of Stock</span>
+                                                ) : item.quantity <= item.minStock ? (
+                                                    <span className="status low-stock">Low Stock</span>
+                                                ) : (
+                                                    <span className="status in-stock">In Stock</span>
+                                                )
+                                            ) : (
+                                                <span className="status removed">Removed</span>
+                                            )}
+                                        </td>
+                                        <td className="center-align">
+                                            <button 
+                                                className="action-button"
+                                                onClick={(e) => handleActionMenuOpen(e, item.id)}
+                                            >
+                                                ⋮
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                    
+                    <div className="pagination">
+                        <button 
+                            className="pagination-button" 
+                            disabled={page === 0}
+                            onClick={() => handleChangePage(page - 1)}
+                        >
+                            &lt; Prev
+                        </button>
+                        <span className="page-info">
+                            Page {page + 1} of {totalPages || 1}
+                        </span>
+                        <button 
+                            className="pagination-button" 
+                            disabled={page >= totalPages - 1 || paginatedInventory.length === 0}
+                            onClick={() => handleChangePage(page + 1)}
+                        >
+                            Next &gt;
+                        </button>
+                        <select 
+                            className="rows-per-page" 
+                            value={rowsPerPage}
+                            onChange={handleChangeRowsPerPage}
+                        >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                        </select>
+                    </div>
+                </div>
+            )}
+
+            {actionMenu.visible && (
+                <div 
+                    className="action-menu"
+                    style={{ 
+                        position: 'absolute', 
+                        top: actionMenu.top + 'px', 
+                        left: actionMenu.left + 'px' 
+                    }}
+                >
+                    {inventory.find(item => item.id === actionMenu.itemId && !item.isRemoved) && (
+                        <>
+                            <button 
+                                className="menu-item" 
+                                onClick={() => {
+                                    const itemToEdit = inventory.find(item => item.id === actionMenu.itemId);
+                                    if (itemToEdit) handleOpenDialog(itemToEdit);
+                                }}
+                            >
+                                ✏️ Edit
+                            </button>
+                            <button 
+                                className="menu-item"
+                                onClick={() => {
+                                    const item = inventory.find(i => i.id === actionMenu.itemId);
+                                    if (item) openStockAdjustDialog(item, 'add');
+                                }}
+                            >
+                                ➕ Add Stock
+                            </button>
+                            <button 
+                                className="menu-item"
+                                onClick={() => {
+                                    const item = inventory.find(i => i.id === actionMenu.itemId);
+                                    if (item) openStockAdjustDialog(item, 'remove');
+                                }}
+                            >
+                                ➖ Remove Stock
+                            </button>
+                            <button 
+                                className="menu-item remove-item"
+                                onClick={() => {
+                                    if (actionMenu.itemId) toggleProductStatus(actionMenu.itemId, false);
+                                }}
+                            >
+                                🗑️ Remove Item
+                            </button>
+                        </>
+                    )}
+                    {inventory.find(item => item.id === actionMenu.itemId && item.isRemoved) && (
+                        <button 
+                            className="menu-item"
+                            onClick={() => {
+                                if (actionMenu.itemId) toggleProductStatus(actionMenu.itemId, true);
+                            }}
+                        >
+                            ♻️ Restore Item
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {openDialog && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <div className="modal-header">
+                            <h2>{editingItem ? 'Edit Item' : 'Add New Item'}</h2>
+                            <button className="close-button" onClick={handleCloseDialog}>×</button>
+                        </div>
+                        <form onSubmit={handleSubmit}>
+                            <div className="modal-body">
+                                <div className="form-group">
+                                    <label htmlFor="name">Name</label>
+                                    <input
+                                        id="name"
+                                        name="name"
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="category">Category</label>
+                                    <input
+                                        id="category"
+                                        name="category"
+                                        type="text"
+                                        value={formData.category}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="supplier_name">Supplier</label>
+                                    <input
+                                        id="supplier_name"
+                                        name="supplier_name"
+                                        type="text"
+                                        value={formData.supplier_name}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="quantity">Quantity</label>
+                                    <input
+                                        id="quantity"
+                                        name="quantity"
+                                        type="number"
+                                        min="0"
+                                        value={formData.quantity}
+                                        onChange={handleInputChange}
+                                        required
+                                        disabled={!!editingItem}
+                                    />
+                                    {editingItem && (
+                                        <small className="helper-text">Quantity is managed via Add/Remove Stock actions.</small>
+                                    )}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="unit">Unit (e.g., pcs, bags, gallon)</label>
+                                    <input
+                                        id="unit"
+                                        name="unit"
+                                        type="text"
+                                        value={formData.unit}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="price">Price (₱)</label>
+                                    <input
+                                        id="price"
+                                        name="price"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={formData.price}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="minStock">Minimum Stock Level</label>
+                                    <input
+                                        id="minStock"
+                                        name="minStock"
+                                        type="number"
+                                        min="0"
+                                        value={formData.minStock}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="button secondary" onClick={handleCloseDialog}>Cancel</button>
+                                <button type="submit" className="button primary">
+                                    {editingItem ? 'Save Changes' : 'Add Item'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {confirmDialog.open && (
+                <div className="modal-overlay">
+                    <div className="modal confirm-dialog">
+                        <div className="modal-header">
+                            <h2>{confirmDialog.title}</h2>
+                        </div>
+                        <div className="modal-body">
+                            <p>{confirmDialog.message}</p>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="button secondary" onClick={closeConfirmDialog}>Cancel</button>
+                            <button 
+                                className="button primary" 
+                                onClick={() => {
+                                    if (confirmDialog.action) confirmDialog.action();
+                                }}
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {stockAdjustDialog.open && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <div className="modal-header">
+                            <h2>
+                                {stockAdjustDialog.adjustmentType === 'add' ? 'Add Stock to ' : 'Remove Stock from '}
+                                <span className="emphasized">{stockAdjustDialog.item?.name}</span>
+                            </h2>
+                            <button className="close-button" onClick={closeStockAdjustDialog}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p className="current-quantity">Current Quantity: {stockAdjustDialog.item?.quantity}</p>
+                            <div className="form-group">
+                                <label htmlFor="adjustment-amount">Amount to Adjust</label>
+                                <input
+                                    id="adjustment-amount"
+                                    type="number"
+                                    min="1"
+                                    value={stockAdjustDialog.amount}
+                                    onChange={(e) => setStockAdjustDialog(prev => ({ ...prev, amount: e.target.value }))}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="adjustment-notes">Notes (Optional)</label>
+                                <textarea
+                                    id="adjustment-notes"
+                                    value={stockAdjustDialog.notes}
+                                    onChange={(e) => setStockAdjustDialog(prev => ({ ...prev, notes: e.target.value }))}
+                                    placeholder={`Reason for ${stockAdjustDialog.adjustmentType === 'add' ? 'adding' : 'removing'} stock...`}
+                                    rows="3"
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="button secondary" onClick={closeStockAdjustDialog}>Cancel</button>
+                            <button className="button primary" onClick={handleStockAdjustment}>
+                                {stockAdjustDialog.adjustmentType === 'add' ? 'Add' : 'Remove'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notification.open && (
+                <div className={`notification ${notification.severity}`}>
+                    <span className="notification-message">{notification.message}</span>
+                    <button 
+                        className="notification-close" 
+                        onClick={() => setNotification(prev => ({ ...prev, open: false }))}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
