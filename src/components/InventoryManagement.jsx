@@ -664,7 +664,7 @@ const InventoryManagement = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label htmlFor="minStock">Minimum Stock Level</label>
+                                    <label htmlFor="minStock">Minimum Stock Level To Alert</label>
                                     <input
                                         id="minStock"
                                         name="minStock"
