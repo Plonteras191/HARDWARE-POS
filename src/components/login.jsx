@@ -110,7 +110,7 @@ const Login = () => {
               mb: 3
             }}
           >
-            HARD-POS
+            CJ'S STORE
           </Typography>
 
           <Typography component="h2" variant="h5" sx={{ mb: 3 }}>
