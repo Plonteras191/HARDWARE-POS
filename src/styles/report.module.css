@@ -1,26 +1,24 @@
-/* report.module.css - Modern responsive styling for Reports component */
-
-/* Base container */
+/* report.module.css */
+/* Base styles with white as primary color */
 .reportContainer {
-  background-color: white;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 24px;
   max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.5rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin: 20px auto;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Report header */
 .reportHeader {
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid #e6f4ff;
-  padding-bottom: 1rem;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .reportTitle {
-  color: #0c4a6e;
-  font-size: 1.5rem;
+  color: #1a1a1a;
+  font-size: 24px;
   font-weight: 600;
   margin: 0;
 }
@@ -28,146 +26,208 @@
 /* Tabs styling */
 .tabsContainer {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid #e6f4ff;
-  padding-bottom: 0.5rem;
+  gap: 4px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
-.tabButtonActive,
-.tabButtonInactive {
-  padding: 0.75rem 1.25rem;
-  font-size: 0.875rem;
+.tabButtonActive, .tabButtonInactive {
+  padding: 12px 20px;
+  border-radius: 8px;
   font-weight: 500;
-  border-radius: 0.375rem;
+  font-size: 15px;
   transition: all 0.2s ease;
   cursor: pointer;
   border: none;
+  min-width: 120px;
+  white-space: nowrap;
 }
 
 .tabButtonActive {
-  background-color: #38bdf8;
+  background-color: #3b82f6;
   color: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .tabButtonInactive {
-  background-color: white;
-  color: #0c4a6e;
-  border: 1px solid #bae6fd;
+  background-color: #f5f5f5;
+  color: #666;
 }
 
 .tabButtonInactive:hover {
-  background-color: #f0f9ff;
-  color: #0284c7;
+  background-color: #e8e8e8;
 }
 
 /* Filter controls */
 .filterControls {
   display: flex;
   flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background-color: #f0f9ff;
-  border-radius: 0.375rem;
 }
 
 .filterLabel {
-  color: #0c4a6e;
   font-weight: 500;
-  font-size: 0.875rem;
+  color: #555;
+  margin-right: 4px;
 }
 
 .filterSelect {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid #bae6fd;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
   background-color: white;
-  color: #0c4a6e;
-  font-size: 0.875rem;
+  color: #333;
+  font-size: 14px;
+  min-width: 120px;
   cursor: pointer;
   transition: border-color 0.2s;
-  min-width: 120px;
 }
 
 .filterSelect:focus {
   outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .filterInput {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid #bae6fd;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
   background-color: white;
-  color: #0c4a6e;
-  font-size: 0.875rem;
-  transition: border-color 0.2s;
-  min-width: 150px;
+  color: #333;
+  font-size: 14px;
+  min-width: 140px;
 }
 
 .filterInput:focus {
   outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-/* Chart container */
-.chartContainer {
-  margin-bottom: 2rem;
-  padding: 1rem;
-  background-color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow-x: auto;
-  display: flex;
-  justify-content: center;
+/* Button styles */
+.downloadButton, .actionButton, .paginationButton, .closeButton, .printButton {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* Table styling */
+.downloadButton {
+  background-color: #10b981;
+  color: white;
+  margin-left: auto;
+}
+
+.downloadButton:hover {
+  background-color: #0ea271;
+}
+
+.downloadButton:disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.actionButton {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.actionButton:hover {
+  background-color: #2563eb;
+}
+
+.paginationButton {
+  background-color: #f3f4f6;
+  color: #555;
+}
+
+.paginationButton:hover {
+  background-color: #e5e7eb;
+}
+
+.paginationButton:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.closeButton {
+  background-color: #f3f4f6;
+  color: #555;
+}
+
+.closeButton:hover {
+  background-color: #e5e7eb;
+}
+
+.printButton {
+  background-color: #3b82f6;
+  color: white;
+  margin-left: 12px;
+}
+
+.printButton:hover {
+  background-color: #2563eb;
+}
+
+/* Table styles */
 .tableContainer {
-  margin-bottom: 1.5rem;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .reportTable {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
 }
 
 .tableHeader {
-  background-color: #f0f9ff;
+  background-color: #f9fafb;
 }
 
 .tableHeaderCell {
-  padding: 0.75rem 1rem;
+  padding: 14px 16px;
   text-align: left;
   font-weight: 600;
-  color: #0c4a6e;
-  border-bottom: 1px solid #bae6fd;
-  white-space: nowrap;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.tableRow:nth-child(even) {
-  background-color: #f0f9ff;
+.tableRow {
+  transition: background-color 0.15s ease;
 }
 
 .tableRow:hover {
-  background-color: #e0f2fe;
+  background-color: #f9fafb;
 }
 
 .tableCell {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e6f4ff;
-  color: #0c4a6e;
+  padding: 14px 16px;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.emptyTableMessage {
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.lowStock {
+  color: #ef4444;
+  font-weight: 500;
 }
 
 /* Pagination */
@@ -175,55 +235,39 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.paginationButton {
-  padding: 0.5rem 1rem;
-  background-color: white;
-  border: 1px solid #bae6fd;
-  border-radius: 0.375rem;
-  color: #0c4a6e;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.paginationButton:hover:not(:disabled) {
-  background-color: #f0f9ff;
-  color: #0284c7;
-}
-
-.paginationButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  gap: 16px;
+  margin-top: 20px;
 }
 
 .paginationText {
-  color: #0c4a6e;
-  font-size: 0.875rem;
+  font-size: 14px;
+  color: #6b7280;
 }
 
-/* Action buttons */
-.actionButton {
-  padding: 0.5rem 0.75rem;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
+/* Chart container */
+.chartContainer {
+  width: 100%;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  padding: 16px;
 }
 
-.actionButton:hover {
-  background-color: #2563eb;
+/* Loading indicator */
+.loadingIndicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #6b7280;
+  font-size: 16px;
 }
 
-/* Modal styling */
+/* Modal styles */
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -235,121 +279,92 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  padding: 1rem;
 }
 
 .modalContainer {
   background-color: white;
-  border-radius: 0.5rem;
-  max-width: 90%;
-  width: 600px;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 24px;
 }
 
 .modalHeader {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
+  margin-top: 0;
+  color: #1a1a1a;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .modalContent {
-  padding: 1.5rem;
-}
-
-.receiptDetail {
-  margin-bottom: 0.75rem;
-  font-size: 0.875rem;
-  color: #374151;
-}
-
-.receiptItemsTitle {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1f2937;
+  margin-bottom: 24px;
 }
 
 .modalActions {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
-.closeButton {
-  padding: 0.5rem 1rem;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.375rem;
+/* Receipt styles */
+.receiptHeader {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.receiptTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #1a1a1a;
+}
+
+.receiptSubtitle {
+  font-size: 16px;
   color: #4b5563;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  margin: 0;
 }
 
-.closeButton:hover {
-  background-color: #f9fafb;
+.receiptInfo {
+  margin-bottom: 20px;
 }
 
-.printButton {
-  padding: 0.5rem 1rem;
-  background-color: #3b82f6;
-  border: none;
-  border-radius: 0.375rem;
-  color: white;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
+.receiptDetail {
+  margin: 8px 0;
+  color: #4b5563;
 }
 
-.printButton:hover {
-  background-color: #2563eb;
+.receiptSummary {
+  margin-bottom: 20px;
 }
 
-/* Print styles */
-@media print {
-  .modalOverlay {
-    position: static;
-    background-color: white;
-    padding: 0;
-  }
-  
-  .modalContainer {
-    box-shadow: none;
-    max-width: 100%;
-    width: 100%;
-  }
-  
-  .modalActions {
-    display: none;
-  }
-  
-  .modalHeader {
-    text-align: center;
-  }
-  
-  .reportContainer > :not(.modalOverlay) {
-    display: none;
-  }
+.receiptTotals {
+  text-align: right;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.receiptTotal {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Action bar for inventory tab */
+.actionBar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 24px;
 }
 
 /* Responsive styles */
 @media (max-width: 768px) {
   .reportContainer {
-    padding: 1rem;
-  }
-  
-  .tabsContainer {
-    justify-content: center;
+    padding: 16px;
+    margin: 12px;
   }
   
   .filterControls {
@@ -357,45 +372,57 @@
     align-items: flex-start;
   }
   
-  .filterLabel {
-    margin-bottom: 0.5rem;
-  }
-  
-  .filterSelect,
-  .filterInput {
+  .downloadButton {
+    margin-left: 0;
     width: 100%;
-    min-width: unset;
   }
   
-  .chartContainer {
-    overflow-x: scroll;
+  .tabButtonActive, .tabButtonInactive {
+    padding: 10px 16px;
+    min-width: auto;
+    flex: 1;
+  }
+  
+  .tableHeaderCell, .tableCell {
+    padding: 12px 8px;
+    font-size: 13px;
   }
   
   .modalContainer {
-    width: 95%;
+    width: 90%;
+    padding: 16px;
+  }
+  
+  .chartContainer {
+    padding: 8px;
   }
 }
 
-/* For very small screens */
+/* Small mobile devices */
 @media (max-width: 480px) {
-  .tabButtonActive,
-  .tabButtonInactive {
+  .reportTitle {
+    font-size: 20px;
+  }
+  
+  .tabsContainer {
+    gap: 2px;
+  }
+  
+  .tabButtonActive, .tabButtonInactive {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  
+  .filterControls > * {
     width: 100%;
-    text-align: center;
   }
   
   .paginationContainer {
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 8px;
   }
   
-  .tableHeaderCell,
-  .tableCell {
-    padding: 0.5rem;
-    font-size: 0.75rem;
-  }
-  
-  .actionButton {
-    padding: 0.375rem 0.5rem;
-    font-size: 0.7rem;
+  .paginationButton {
+    width: 100%;
   }
 }

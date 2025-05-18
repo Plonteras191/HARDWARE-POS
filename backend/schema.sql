@@ -1,3 +1,5 @@
+--LOGIN  username: cjsupply@admin password: admincjsupply
+
 CREATE DATABASE IF NOT EXISTS hardware_pos;
 USE hardware_pos;
 
@@ -29,10 +31,10 @@ CREATE TABLE stock_adjustments (
     adjustment_id INT AUTO_INCREMENT PRIMARY KEY,
     product_id INT NOT NULL,
     quantity INT NOT NULL, -- positive for additions, negative for removals
-    reason ENUM('purchase', 'sale', 'return', 'damaged', 'correction', 'initial') NOT NULL,
+    reason ENUM('stock added', 'stock remove') NOT NULL,
     reference_id INT, -- Can link to transaction_id if adjustment is from a sale
     adjustment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT,
+    notes TEXT, -- note for admin only not stock remove or stock added
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
 

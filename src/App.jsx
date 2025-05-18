@@ -3,8 +3,11 @@ import InventoryManagement from './components/InventoryManagement';
 import POS from './components/POS';
 import Sidebar from './components/Sidebar';
 import Report from './components/Report';
-import Dashboard from './components/dashboard';  // Import the Dashboard component
+import Dashboard from './components/dashboard';
+import Login from './components/login';
+import ProtectedRoute from './components/ProtectedRoute';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { AuthProvider } from './context/AuthContext';
 
 const theme = createTheme({
   palette: {
@@ -21,17 +24,28 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Routes>
-          <Route element={<Sidebar />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} /> {/* Changed default route to dashboard */}
-            <Route path="/inventory" element={<InventoryManagement />} />
-            <Route path="/pos" element={<POS />} />
-            <Route path="/dashboard" element={<Dashboard />} /> {/* Using Dashboard component */}
-            <Route path="/report" element={<Report />} />
-          </Route>
-        </Routes>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            {/* Public route */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Sidebar />}>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/inventory" element={<InventoryManagement />} />
+                <Route path="/pos" element={<POS />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/report" element={<Report />} />
+              </Route>
+            </Route>
+            
+            {/* Catch all - redirect to login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

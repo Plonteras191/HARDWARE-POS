@@ -467,7 +467,7 @@ const POS = () => {
                         <h2 className={styles.receiptHeader}>Transaction Summary</h2>
                         <div className={styles.receipt} ref={receiptRef}>
                             <div className={styles.receiptStore}>
-                                <h3>HARD-POS STORE</h3>
+                                <h3>CJ'S STORE</h3>
                                 <p className={styles.receiptTransaction}>Transaction: {transactionId}</p>
                                 <p className={styles.receiptDate}>{formatDateTime()}</p>
                             </div>
