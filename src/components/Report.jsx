@@ -638,9 +638,8 @@ const Report = () => {
               <div className={styles.receiptInfo}>
                 <p className={styles.receiptDetail}><strong>Transaction ID:</strong> {receiptData.ref}</p>
                 <p className={styles.receiptDetail}><strong>Date:</strong> {receiptData.date}</p>
-              </div>
-              <div className={styles.receiptSummary}>
-                <table className={styles.reportTable}> {/* Re-using reportTable style for consistency */}
+              </div>              <div className={styles.receiptSummary}>
+                <table className={styles.reportTable}>
                   <thead className={styles.tableHeader}>
                     <tr>
                       <th className={styles.tableHeaderCell}>Product</th>
@@ -651,7 +650,7 @@ const Report = () => {
                   </thead>
                   <tbody>
                     {receiptData.items.map((item) => (
-                      <tr key={item.id || item.name} /* Ensure unique key */ className={styles.tableRow}>
+                      <tr key={item.id || item.name} className={styles.tableRow}>
                         <td className={styles.tableCell}>{item.name}</td>
                         <td className={styles.tableCell}>{item.quantity}</td>
                         <td className={styles.tableCell}>₱{parseFloat(item.price).toLocaleString()}</td>
