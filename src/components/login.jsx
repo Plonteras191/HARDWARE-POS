@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logo from '../assets/cj.png';
 import {
   Box,
   Button,
@@ -110,7 +111,15 @@ const Login = () => {
               mb: 3
             }}
           >
-            COCOLUMBER
+            <img 
+                                    src={logo} 
+                                    alt="Logo" 
+                                    style={{
+                                        maxWidth: '180px',
+                                        height: '150px',
+                                        display: 'block'
+                                    }}
+                                />
           </Typography>
 
           <Typography component="h2" variant="h5" sx={{ mb: 3 }}>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import logo from '../assets/cj.png';
 import {
     Drawer,
     List,
@@ -95,7 +96,15 @@ const Sidebar = () => {
                         fontSize: '1.5rem'
                     }}
                 >
-                    CJ'S STORE
+                     <img 
+                        src={logo} 
+                        alt="Logo" 
+                        style={{
+                            maxWidth: '180px',
+                            height: '95px',
+                            display: 'block'
+                        }}
+                    />
                 </Typography>
             </Toolbar>
             <Divider />
