@@ -182,11 +182,29 @@ function getSalesDetailReport($conn, $transactionId) {
 // Function to get current inventory status report
 function getInventoryReport($conn) {
     try {
+        $status = isset($_GET['status']) ? $_GET['status'] : 'all';
+        
         $sql = "SELECT p.product_id, p.name, c.name as category_name, p.supplier_name, 
                        p.current_stock, p.min_stock, p.unit, p.price, p.is_active
                 FROM products p
-                JOIN categories c ON p.category_id = c.category_id
-                ORDER BY p.name ASC";
+                JOIN categories c ON p.category_id = c.category_id";
+        
+        // Add WHERE clause based on status
+        if ($status !== 'all') {
+            switch ($status) {
+                case 'In Stock':
+                    $sql .= " WHERE p.current_stock > p.min_stock";
+                    break;
+                case 'Low Stock':
+                    $sql .= " WHERE p.current_stock <= p.min_stock AND p.current_stock > 0";
+                    break;
+                case 'Out of Stock':
+                    $sql .= " WHERE p.current_stock = 0";
+                    break;
+            }
+        }
+        
+        $sql .= " ORDER BY p.name ASC";
 
         $stmt = $conn->prepare($sql);
         $stmt->execute();
@@ -252,27 +270,40 @@ function getLowStockReport($conn) {
 // Function to get stock adjustments report
 function getStockAdjustmentReport($conn, $startDate = null, $endDate = null) {
     try {
+        $reason = isset($_GET['reason']) ? $_GET['reason'] : 'all';
+        
         $sql = "SELECT sa.adjustment_id, sa.product_id, p.name as product_name, 
                        sa.quantity, sa.reason, sa.notes, sa.adjustment_date
                 FROM stock_adjustments sa
                 JOIN products p ON sa.product_id = p.product_id";
         
-        // Add date filters if provided
         $params = [];
         $types = "";
         $whereAdded = false;
+          $conditions = [];
+        
+        // Add reason filter if not 'all'
+        if ($reason !== 'all') {
+            $conditions[] = "sa.reason = ?";
+            $params[] = $reason;
+            $types .= "s";
+        }
 
         if ($startDate) {
-            $sql .= " WHERE sa.adjustment_date >= ?";
+            $conditions[] = "sa.adjustment_date >= ?";
             $params[] = $startDate . " 00:00:00";
             $types .= "s";
-            $whereAdded = true;
         }
 
         if ($endDate) {
-            $sql .= $whereAdded ? " AND sa.adjustment_date <= ?" : " WHERE sa.adjustment_date <= ?";
+            $conditions[] = "sa.adjustment_date <= ?";
             $params[] = $endDate . " 23:59:59";
             $types .= "s";
+        }
+
+        // Add WHERE clause if there are any conditions
+        if (!empty($conditions)) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
         }
 
         $sql .= " ORDER BY sa.adjustment_date DESC";

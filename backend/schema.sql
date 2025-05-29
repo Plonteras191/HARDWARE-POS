@@ -31,10 +31,10 @@ CREATE TABLE stock_adjustments (
     adjustment_id INT AUTO_INCREMENT PRIMARY KEY,
     product_id INT NOT NULL,
     quantity INT NOT NULL, -- positive for additions, negative for removals
-    reason ENUM('stock added', 'stock remove') NOT NULL,
+    reason ENUM('stock added', 'damage', 'return') NOT NULL,
     reference_id INT, -- Can link to transaction_id if adjustment is from a sale
     adjustment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT, -- note for admin only not stock remove or stock added
+    notes TEXT, -- Additional notes for the adjustment
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
 

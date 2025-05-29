@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import '../styles/inventory.css';
 
@@ -35,6 +34,7 @@ const InventoryManagement = () => {
         item: null,
         amount: '',
         adjustmentType: null,
+        reason: '',
         notes: ''
     });
 
@@ -170,16 +170,15 @@ const InventoryManagement = () => {
             item: currentItem,
             amount: '',
             notes: '',
+            reason: '',
             adjustmentType: type
         });
     };
 
     const closeStockAdjustDialog = () => {
         setStockAdjustDialog(prev => ({ ...prev, open: false, item: null, amount: '', notes: '' }));
-    };
-
-    const handleStockAdjustment = async () => {
-        const { item, amount, adjustmentType, notes } = stockAdjustDialog;
+    };    const handleStockAdjustment = async () => {
+        const { item, amount, adjustmentType, notes, reason } = stockAdjustDialog;
 
         if (!item || !adjustmentType || !amount || Number(amount) <= 0) {
             setNotification({
@@ -190,10 +189,19 @@ const InventoryManagement = () => {
             return;
         }
 
+        if (adjustmentType === 'remove' && !reason) {
+            setNotification({
+                open: true,
+                message: 'Please select a reason for removing stock.',
+                severity: 'error'
+            });
+            return;
+        }
+
         if (!notes.trim()) {
             setNotification({
                 open: true,
-                message: 'Please provide a note for the adjustment.',
+                message: adjustmentType === 'remove' ? 'Please provide additional details for the stock removal.' : 'Please provide notes for the adjustment.',
                 severity: 'error'
             });
             return;
@@ -202,6 +210,7 @@ const InventoryManagement = () => {
         const payload = {
             amount: Number(amount),
             adjustmentType,
+            reason: adjustmentType === 'remove' ? reason : 'stock added',
             notes: notes.trim()
         };
 
@@ -734,13 +743,28 @@ const InventoryManagement = () => {
                                     required
                                 />
                             </div>
+                            {stockAdjustDialog.adjustmentType === 'remove' && (
+                                <div className="form-group">
+                                    <label htmlFor="adjustment-reason">Reason for Removal</label>
+                                    <select
+                                        id="adjustment-reason"
+                                        value={stockAdjustDialog.reason}
+                                        onChange={(e) => setStockAdjustDialog(prev => ({ ...prev, reason: e.target.value }))}
+                                        required
+                                    >
+                                        <option value="">Select a reason</option>
+                                        <option value="damage">Damage</option>
+                                        <option value="return">Return</option>
+                                    </select>
+                                </div>
+                            )}
                             <div className="form-group">
-                                <label htmlFor="adjustment-notes">Adjustment Notes (Required)</label>
+                                <label htmlFor="adjustment-notes">Additional Notes</label>
                                 <textarea
                                     id="adjustment-notes"
                                     value={stockAdjustDialog.notes}
                                     onChange={(e) => setStockAdjustDialog(prev => ({ ...prev, notes: e.target.value }))}
-                                    placeholder="Enter reason for stock adjustment..."
+                                    placeholder="Enter additional details about this adjustment..."
                                     rows="3"
                                     required
                                 ></textarea>

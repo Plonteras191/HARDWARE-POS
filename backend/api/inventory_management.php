@@ -318,10 +318,15 @@ function updateProduct($conn, $id, $data) {
 }
 
 // Function to adjust stock (add or remove)
-function adjustStock($conn, $id, $data) {
-    // Validate required fields
+function adjustStock($conn, $id, $data) {    // Validate required fields
     if (!isset($data['amount']) || !isset($data['adjustmentType']) || !isset($data['notes'])) {
         echo json_encode(['error' => 'Missing amount, adjustment type, or notes']);
+        return;
+    }
+
+    // Validate reason for stock removal
+    if ($data['adjustmentType'] === 'remove' && (!isset($data['reason']) || !in_array($data['reason'], ['damage', 'return']))) {
+        echo json_encode(['error' => 'Valid reason is required for stock removal']);
         return;
     }
     
@@ -370,10 +375,8 @@ function adjustStock($conn, $id, $data) {
         // Update stock
         $stmt = $conn->prepare("UPDATE products SET current_stock = ? WHERE product_id = ?");
         $stmt->bind_param("ii", $newQuantity, $id);
-        $stmt->execute();
-        
-        // Add stock adjustment record
-        $reason = $adjustmentType === 'add' ? 'stock added' : 'stock remove';
+        $stmt->execute();        // Add stock adjustment record
+        $reason = $adjustmentType === 'add' ? 'stock added' : $data['reason'];
         
         $stmt = $conn->prepare("INSERT INTO stock_adjustments (product_id, quantity, reason, notes) 
                               VALUES (?, ?, ?, ?)");
